@@ -1,0 +1,61 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isAuthed() && request.auth.uid == uid;
+    }
+
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      match /pets/{petId} {
+        allow read, write: if isOwner(uid);
+
+        match /reminders/{reminderId} {
+          allow read, write: if isOwner(uid);
+        }
+
+        match /weights/{entryId} {
+          allow read, write: if isOwner(uid);
+        }
+
+        match /logs/{logId} {
+          allow read, write: if isOwner(uid);
+        }
+      }
+
+      match /deviceTokens/{tokenId} {
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    match /posts/{postId} {
+      allow read: if isAuthed();
+      allow create: if isAuthed();
+      allow update: if isAuthed() && (
+        resource.data.ownerUid == request.auth.uid ||
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['likeCount', 'commentCount', 'updatedAt'])
+      );
+      allow delete: if isAuthed() && resource.data.ownerUid == request.auth.uid;
+
+      match /likes/{uid} {
+        allow read: if isAuthed();
+        allow write: if isOwner(uid);
+      }
+
+      match /comments/{commentId} {
+        allow read: if isAuthed();
+        allow create: if isAuthed();
+        allow update, delete: if isAuthed() && resource.data.uid == request.auth.uid;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,24 +1,25 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { AppProviders } from '@/providers/app-providers';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+    <AppProviders>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="pets/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="pets/[petId]" />
+        <Stack.Screen name="pets/[petId]/edit" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="pets/[petId]/reminders/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="pets/[petId]/reminders/[reminderId]/edit" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="pets/[petId]/weights/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="pets/[petId]/logs/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="social/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="dev/push-test" options={{ presentation: 'modal' }} />
       </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+      <StatusBar style="dark" />
+    </AppProviders>
   );
 }

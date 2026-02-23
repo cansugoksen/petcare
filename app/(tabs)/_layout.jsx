@@ -1,33 +1,49 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Tabs } from 'expo-router';
-import React from 'react';
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { PetCareTheme } from '@/constants/petcare-theme';
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
+        tabBarActiveTintColor: PetCareTheme.colors.primary,
+        tabBarInactiveTintColor: PetCareTheme.colors.textMuted,
+        tabBarStyle: {
+          borderTopColor: PetCareTheme.colors.border,
+          backgroundColor: '#fff',
+          height: 62,
+          paddingTop: 6,
+          paddingBottom: 8,
+        },
       }}>
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: 'Ana Sayfa',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="home-filled" color={color} size={size} />,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="pets"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Petler',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="pets" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="social"
+        options={{
+          title: 'Sosyal',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="photo-library" color={color} size={size} />,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Ayarlar',
+          tabBarIcon: ({ color, size }) => <MaterialIcons name="settings" color={color} size={size} />,
         }}
       />
     </Tabs>
