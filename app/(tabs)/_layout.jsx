@@ -1,51 +1,145 @@
+import { useEffect, useRef } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Tabs } from 'expo-router';
+import { router, Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PetCareTheme } from '@/constants/petcare-theme';
+import { useAuth } from '@/providers/auth-provider';
+
+const AUTH_PROMPT_SEEN_KEY = 'petcare:auth-prompt-seen:v1';
+const AUTH_PROMPT_SUPPRESS_KEY = 'petcare:auth-prompt-suppress:v1';
 
 export default function TabLayout() {
+  const { user, initializing } = useAuth();
+  const insets = useSafeAreaInsets();
+  const promptedRef = useRef(false);
+
+  useEffect(() => {
+    if (initializing || promptedRef.current) {
+      return;
+    }
+
+    if (!user?.uid || !user.isAnonymous) {
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const seen = await AsyncStorage.getItem(AUTH_PROMPT_SEEN_KEY);
+        const suppress = await AsyncStorage.getItem(AUTH_PROMPT_SUPPRESS_KEY);
+        const shouldShow = !seen || suppress === '0';
+
+        if (shouldShow && !cancelled) {
+          promptedRef.current = true;
+          router.push('/auth/welcome');
+        }
+      } catch {
+        if (!cancelled) {
+          promptedRef.current = true;
+          router.push('/auth/welcome');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initializing, user?.uid, user?.isAnonymous]);
+
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: PetCareTheme.colors.primary,
-        tabBarInactiveTintColor: PetCareTheme.colors.textMuted,
-        tabBarStyle: {
-          borderTopColor: PetCareTheme.colors.border,
-          backgroundColor: '#fff',
-          height: 62,
-          paddingTop: 6,
-          paddingBottom: 8,
-        },
-      }}>
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Ana Sayfa',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="home-filled" color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="pets"
-        options={{
-          title: 'Petler',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="pets" color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="social"
-        options={{
-          title: 'Sosyal',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="photo-library" color={color} size={size} />,
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Ayarlar',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="settings" color={color} size={size} />,
-        }}
-      />
-    </Tabs>
+    <View style={{ flex: 1 }}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: PetCareTheme.colors.primary,
+          tabBarInactiveTintColor: PetCareTheme.colors.textMuted,
+          tabBarStyle: {
+            borderTopColor: PetCareTheme.colors.border,
+            borderTopWidth: 1,
+            backgroundColor: 'rgba(255,255,255,0.98)',
+            height: 68 + Math.max(insets.bottom - 2, 0),
+            paddingTop: 6,
+            paddingBottom: Math.max(8, insets.bottom + 2),
+            marginHorizontal: 12,
+            marginBottom: 10,
+            borderRadius: 18,
+            position: 'absolute',
+            shadowColor: '#112B3A',
+            shadowOpacity: 0.08,
+            shadowRadius: 14,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 8,
+          },
+          tabBarLabelStyle: {
+            fontSize: 11,
+            fontWeight: '600',
+          },
+        }}>
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: 'Ana Sayfa',
+            tabBarIcon: ({ color, size }) => <MaterialIcons name="home-filled" color={color} size={size} />,
+          }}
+        />
+        <Tabs.Screen
+          name="pets"
+          options={{
+            title: 'Petler',
+            tabBarIcon: ({ color, size }) => <MaterialIcons name="pets" color={color} size={size} />,
+          }}
+        />
+        <Tabs.Screen
+          name="social"
+          options={{
+            title: 'Sosyal',
+            tabBarIcon: ({ color, size }) => <MaterialIcons name="photo-library" color={color} size={size} />,
+          }}
+        />
+      </Tabs>
+
+      <Pressable
+        onPress={() => router.push('/settings-drawer')}
+        style={({ pressed }) => [
+          styles.settingsLauncher,
+          { bottom: 88 + Math.max(insets.bottom, 0) },
+          pressed && { opacity: 0.88 },
+        ]}>
+        <MaterialIcons name="menu" size={18} color="#1E8E7E" />
+        <Text style={styles.settingsLauncherText}>Menü</Text>
+      </Pressable>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  settingsLauncher: {
+    position: 'absolute',
+    left: 12,
+    minWidth: 72,
+    height: 40,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#CDE4DE',
+    backgroundColor: '#F0FBF8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 12,
+    shadowColor: '#113344',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  settingsLauncherText: {
+    color: '#1E8E7E',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+});

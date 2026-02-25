@@ -1,22 +1,27 @@
 export const PetCareTheme = {
   colors: {
-    bg: '#F5F8FA',
+    bg: '#F3F7FB',
+    bgSoft: '#F8FBFE',
     surface: '#FFFFFF',
-    surfaceAlt: '#EDF3F7',
-    border: '#D8E3EA',
-    text: '#10222E',
-    textMuted: '#5D7484',
+    surfaceAlt: '#EEF4F9',
+    border: '#DCE7EF',
+    borderStrong: '#CCDCE7',
+    text: '#112532',
+    textMuted: '#5F788A',
+    textSoft: '#7C95A6',
     primary: '#1E8E7E',
-    primarySoft: '#DFF4EF',
+    primaryDark: '#167266',
+    primarySoft: '#E2F6F1',
     danger: '#C73E4C',
     warning: '#B97400',
     info: '#2C6FA7',
     chipBg: '#EEF4F8',
   },
   radius: {
-    sm: 10,
-    md: 14,
-    lg: 20,
+    sm: 12,
+    md: 16,
+    lg: 22,
+    xl: 26,
   },
   spacing: (n) => n * 8,
 };
@@ -57,3 +62,20 @@ export const petSpeciesLabels = {
 export function getPetSpeciesLabel(species) {
   return petSpeciesLabels[species] || 'Pet';
 }
+
+export const petGenderOptions = [
+  { key: 'female', label: 'Dişi' },
+  { key: 'male', label: 'Erkek' },
+  { key: 'unknown', label: 'Bilinmiyor' },
+];
+
+export const petGenderLabels = {
+  female: 'Dişi',
+  male: 'Erkek',
+  unknown: 'Bilinmiyor',
+};
+
+export function getPetGenderLabel(gender) {
+  return petGenderLabels[gender] || 'Bilinmiyor';
+}
+

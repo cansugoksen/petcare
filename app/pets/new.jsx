@@ -1,10 +1,10 @@
 import { AuthGate } from '@/components/pc/auth-guard';
-import { PetFormScreen } from '@/features/pets/pet-form-screen';
+import { PetCreateWizardScreen } from '@/features/pets/pet-create-wizard-screen';
 
 export default function NewPetScreen() {
   return (
     <AuthGate>
-      <PetFormScreen mode="create" />
+      <PetCreateWizardScreen />
     </AuthGate>
   );
 }

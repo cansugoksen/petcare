@@ -6,8 +6,7 @@ import { router } from 'expo-router';
 import { AuthGate } from '@/components/pc/auth-guard';
 import { Button, Card, ErrorText, Field, Screen } from '@/components/pc/ui';
 import { PetCareTheme } from '@/constants/petcare-theme';
-import { pickImageFromLibrary, uploadSocialPostImage } from '@/lib/media';
-import { createSocialPost } from '@/lib/petcare-db';
+import { pickImageFromLibrary } from '@/lib/media';
 import { useAuth } from '@/providers/auth-provider';
 
 export default function NewSocialPostRoute() {
@@ -23,7 +22,6 @@ function NewSocialPostScreen() {
   const [imageUri, setImageUri] = useState('');
   const [caption, setCaption] = useState('');
   const [petName, setPetName] = useState('');
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const closeScreen = () => {
@@ -42,78 +40,78 @@ function NewSocialPostScreen() {
       }
       setImageUri(asset.uri);
     } catch (err) {
-      Alert.alert('Fotograf secilemedi', err.message);
+      Alert.alert('Fotoğraf seçilemedi', err.message);
     }
   };
 
   const handleSubmit = async () => {
     if (!imageUri) {
-      setError('Paylasim icin fotograf secmelisiniz.');
+      setError('Paylaşım için fotoğraf seçmelisiniz.');
       return;
     }
 
-    try {
-      setSaving(true);
-      setError('');
+    const ownerNamePreview = user?.displayName || `Kullanıcı ${String(user?.uid || '').slice(0, 6)}`;
 
-      const uploaded = await uploadSocialPostImage({
-        uid: user.uid,
-        uri: imageUri,
-      });
-
-      await createSocialPost(user.uid, {
-        ownerName: `Kullanici ${String(user.uid || '').slice(0, 6)}`,
-        petName: petName.trim() || null,
-        imageUrl: uploaded.photoUrl,
-        imagePath: uploaded.photoPath,
-        caption: caption.trim(),
-      });
-
-      closeScreen();
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setSaving(false);
-    }
+    setError(
+      `Sosyal fotoğraf paylaşımı geçici olarak bakımda. Gönderi sahibi adı hazır: ${ownerNamePreview}. Firebase Storage düzelince paylaşım akışı yeniden açılacak.`
+    );
   };
 
+  const ownerLabel =
+    user?.displayName || (user?.isAnonymous ? 'Anonim Kullanıcı' : user?.email || 'PetCare Kullanıcısı');
+
+  const ownerBadgeText = (user?.displayName || user?.email || 'P').slice(0, 1).toUpperCase();
+
   return (
-    <Screen title="Paylasim Olustur" subtitle="Pet fotografini sosyal alanda paylas" scroll>
+    <Screen title="Paylaşım Oluştur" subtitle="Pet fotoğrafını sosyal alanda paylaş" scroll>
       <Card>
-        <Text style={styles.label}>Fotograf</Text>
+        <Text style={styles.label}>Fotoğraf</Text>
         <Pressable onPress={handlePickImage} style={styles.imagePickerBox}>
           {imageUri ? (
             <Image source={{ uri: imageUri }} style={styles.imagePreview} contentFit="cover" />
           ) : (
             <View style={styles.placeholderWrap}>
-              <Text style={styles.placeholderTitle}>Fotograf sec</Text>
-              <Text style={styles.placeholderText}>Pet paylasiminiz icin bir gorsel secin</Text>
+              <Text style={styles.placeholderTitle}>Fotoğraf seç</Text>
+              <Text style={styles.placeholderText}>Pet paylaşımınız için bir görsel seçin</Text>
             </View>
           )}
         </Pressable>
-        <Button title="Galeriden Sec" variant="secondary" onPress={handlePickImage} />
+        <Button title="Galeriden Seç" variant="secondary" onPress={handlePickImage} />
       </Card>
 
       <Card>
+        <View style={styles.ownerPreviewRow}>
+          <View style={styles.ownerPreviewBadge}>
+            <Text style={styles.ownerPreviewBadgeText}>{ownerBadgeText}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.ownerPreviewTitle}>Paylaşım sahibi</Text>
+            <Text style={styles.ownerPreviewValue}>{ownerLabel}</Text>
+          </View>
+        </View>
+
         <Field
-          label="Pet adi (opsiyonel)"
+          label="Pet adı (opsiyonel)"
           value={petName}
           onChangeText={setPetName}
-          placeholder="Orn. Minnos"
+          placeholder="Örn. Minnoş"
           autoCapitalize="words"
         />
         <Field
-          label="Aciklama"
+          label="Açıklama"
           value={caption}
           onChangeText={setCaption}
-          placeholder="Paylasiminiz hakkinda kisa bir not..."
+          placeholder="Paylaşımınız hakkında kısa bir not..."
           multiline
           autoCapitalize="sentences"
         />
         <ErrorText>{error}</ErrorText>
+        <Text style={styles.helperNotice}>
+          Not: Sosyal paylaşımlar için görsel yükleme geçici olarak kapalı. Profil fotoğrafları çalışmaya devam eder.
+        </Text>
         <View style={styles.footerRow}>
-          <Button title="Iptal" variant="secondary" onPress={closeScreen} style={{ flex: 1 }} />
-          <Button title="Paylas" onPress={handleSubmit} loading={saving} style={{ flex: 1 }} />
+          <Button title="İptal" variant="secondary" onPress={closeScreen} style={{ flex: 1 }} />
+          <Button title="Paylaş" onPress={handleSubmit} style={{ flex: 1 }} />
         </View>
       </Card>
     </Screen>
@@ -154,8 +152,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
   },
+  ownerPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 2,
+  },
+  ownerPreviewBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: '#EAF4FD',
+    borderWidth: 1,
+    borderColor: '#D7E8F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ownerPreviewBadgeText: {
+    color: '#2C5E86',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  ownerPreviewTitle: {
+    color: '#6F8EA6',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  ownerPreviewValue: {
+    color: PetCareTheme.colors.text,
+    fontWeight: '700',
+    fontSize: 13,
+  },
   footerRow: {
     flexDirection: 'row',
     gap: 8,
   },
+  helperNotice: {
+    color: '#7A95AB',
+    fontSize: 12,
+    lineHeight: 17,
+  },
 });
+

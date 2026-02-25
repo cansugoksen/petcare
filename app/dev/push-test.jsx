@@ -49,7 +49,7 @@ function DevPushTestScreen() {
       await saveDeviceToken(user.uid, tokenData);
       Alert.alert('Tamam', 'Cihaz tokeni kaydedildi.');
     } catch (err) {
-      Alert.alert('Push test kaydi basarisiz', err.message);
+      Alert.alert('Push test kaydı başarısız', err.message);
     } finally {
       setLoading(false);
     }
@@ -57,15 +57,15 @@ function DevPushTestScreen() {
 
   return (
     <Screen
-      title="Push Test (Gelistirici)"
-      subtitle="Token kaydi ve push test hazirlik kontrolu"
+      title="Push Test (Geliştirici)"
+      subtitle="Token kaydı ve push test hazırlık kontrolü"
       right={<Button title="Kapat" variant="secondary" onPress={() => router.back()} />}>
       <Card>
         <Text style={{ fontWeight: '700' }}>Cihaz Tokeni</Text>
         <Text>UID: {user?.uid || '-'}</Text>
         <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-          <Chip label={tokens.length ? 'Token kayitli' : 'Token yok'} tone={tokens.length ? 'primary' : 'warning'} />
-          <Chip label={`${tokens.length} kayit`} />
+          <Chip label={tokens.length ? 'Token kayıtlı' : 'Token yok'} tone={tokens.length ? 'primary' : 'warning'} />
+          <Chip label={`${tokens.length} kayıt`} />
         </View>
         <Button
           title={loading ? 'Kaydediliyor...' : 'Cihaz Tokenini Kaydet'}
@@ -79,21 +79,21 @@ function DevPushTestScreen() {
         <Text style={{ fontWeight: '700' }}>Son Token Bilgisi</Text>
         <Text>Platform: {latestToken?.platform || '-'}</Text>
         <Text>Provider: {latestToken?.provider || '-'}</Text>
-        <Text>Son guncelleme: {latestToken?.updatedAt ? formatDateTime(latestToken.updatedAt) : '-'}</Text>
+        <Text>Son güncelleme: {latestToken?.updatedAt ? formatDateTime(latestToken.updatedAt) : '-'}</Text>
         {latestToken?.token ? (
           <Text selectable numberOfLines={3}>
             Token: {latestToken.token}
           </Text>
         ) : null}
-        {error ? <Text style={{ color: '#C73E4C' }}>Okuma hatasi: {error.message}</Text> : null}
+        {error ? <Text style={{ color: '#C73E4C' }}>Okuma hatası: {error.message}</Text> : null}
       </Card>
 
       <Card>
-        <Text style={{ fontWeight: '700' }}>Test Adimlari</Text>
+        <Text style={{ fontWeight: '700' }}>Test Adımları</Text>
         <Text>1. Bu ekrandan token kaydet.</Text>
-        <Text>2. 2-5 dakika sonraya reminder olustur.</Text>
-        <Text>3. Uygulamayi tamamen kapat.</Text>
-        <Text>4. Functions + Scheduler deploy sonrasi push bekle.</Text>
+        <Text>2. 2-5 dakika sonraya reminder oluştur.</Text>
+        <Text>3. Uygulamayı tamamen kapat.</Text>
+        <Text>4. Functions + Scheduler deploy sonrası push bekle.</Text>
       </Card>
     </Screen>
   );

@@ -80,7 +80,7 @@ export function Button({ title, onPress, variant = 'primary', disabled, loading,
 export function Chip({ label, tone = 'default' }) {
   const toneStyle = chipTones[tone] || chipTones.default;
   return (
-    <View style={[styles.chip, toneStyle.bg]}>
+    <View style={[styles.chip, toneStyle.bg, toneStyle.border]}>
       <Text style={[styles.chipText, toneStyle.text]}>{label}</Text>
     </View>
   );
@@ -107,7 +107,12 @@ const buttonVariants = {
   primary: {
     button: {
       backgroundColor: PetCareTheme.colors.primary,
-      borderColor: PetCareTheme.colors.primary,
+      borderColor: PetCareTheme.colors.primaryDark,
+      shadowColor: '#145A50',
+      shadowOpacity: 0.16,
+      shadowRadius: 8,
+      shadowOffset: { width: 0, height: 4 },
+      elevation: 2,
     },
     text: {
       color: '#fff',
@@ -115,8 +120,8 @@ const buttonVariants = {
   },
   secondary: {
     button: {
-      backgroundColor: PetCareTheme.colors.surface,
-      borderColor: PetCareTheme.colors.border,
+      backgroundColor: PetCareTheme.colors.bgSoft,
+      borderColor: PetCareTheme.colors.borderStrong,
     },
     text: {
       color: PetCareTheme.colors.text,
@@ -124,8 +129,8 @@ const buttonVariants = {
   },
   danger: {
     button: {
-      backgroundColor: '#FFECEE',
-      borderColor: '#F2B8BE',
+      backgroundColor: '#FFF1F3',
+      borderColor: '#F2C7CE',
     },
     text: {
       color: PetCareTheme.colors.danger,
@@ -136,14 +141,17 @@ const buttonVariants = {
 const chipTones = {
   default: {
     bg: { backgroundColor: PetCareTheme.colors.chipBg },
+    border: { borderColor: '#DDE8EF' },
     text: { color: PetCareTheme.colors.textMuted },
   },
   primary: {
     bg: { backgroundColor: PetCareTheme.colors.primarySoft },
+    border: { borderColor: '#CFEAE1' },
     text: { color: PetCareTheme.colors.primary },
   },
   warning: {
     bg: { backgroundColor: '#FFF1D6' },
+    border: { borderColor: '#F2DFC0' },
     text: { color: PetCareTheme.colors.warning },
   },
 };
@@ -158,26 +166,28 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 14,
     paddingBottom: 36,
-    gap: 12,
+    gap: 14,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   title: {
-    fontSize: 28,
+    fontSize: 29,
     fontWeight: '700',
     color: PetCareTheme.colors.text,
+    letterSpacing: -0.3,
   },
   subtitle: {
     marginTop: 4,
-    fontSize: 14,
+    fontSize: 13,
     color: PetCareTheme.colors.textMuted,
-    lineHeight: 20,
+    lineHeight: 19,
+    maxWidth: '96%',
   },
   card: {
     backgroundColor: PetCareTheme.colors.surface,
@@ -186,6 +196,11 @@ const styles = StyleSheet.create({
     borderColor: PetCareTheme.colors.border,
     padding: 14,
     gap: 10,
+    shadowColor: '#132A39',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
   },
   row: {
     flexDirection: 'row',
@@ -201,21 +216,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   input: {
-    minHeight: 44,
+    minHeight: 46,
     borderRadius: PetCareTheme.radius.md,
     borderWidth: 1,
-    borderColor: PetCareTheme.colors.border,
-    backgroundColor: '#fff',
-    paddingHorizontal: 12,
+    borderColor: PetCareTheme.colors.borderStrong,
+    backgroundColor: '#FBFDFF',
+    paddingHorizontal: 13,
     paddingVertical: 10,
     color: PetCareTheme.colors.text,
+    fontSize: 14,
   },
   inputMultiline: {
     minHeight: 96,
     textAlignVertical: 'top',
   },
   buttonBase: {
-    minHeight: 46,
+    minHeight: 47,
     borderRadius: PetCareTheme.radius.md,
     borderWidth: 1,
     alignItems: 'center',
@@ -224,7 +240,8 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontWeight: '700',
-    fontSize: 14,
+    fontSize: 13,
+    letterSpacing: 0.1,
   },
   buttonDisabled: {
     opacity: 0.55,
@@ -234,16 +251,18 @@ const styles = StyleSheet.create({
   },
   chip: {
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 999,
+    borderWidth: 1,
     alignSelf: 'flex-start',
   },
   chipText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   emptyCard: {
     alignItems: 'flex-start',
+    backgroundColor: '#FBFDFF',
   },
   emptyTitle: {
     fontSize: 16,
@@ -252,7 +271,8 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: PetCareTheme.colors.textMuted,
-    lineHeight: 20,
+    lineHeight: 19,
+    fontSize: 13,
   },
   errorText: {
     color: PetCareTheme.colors.danger,

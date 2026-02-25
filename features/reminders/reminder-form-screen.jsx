@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, Pressable } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
-import { Button, Card, ErrorText, Field, Screen } from '@/components/pc/ui';
+import DateTimePicker from '@/components/pc/date-time-picker';
+import { Button, Card, ErrorText, Field, Label, Screen } from '@/components/pc/ui';
 import { PetCareTheme, reminderTypeLabels, repeatTypeLabels } from '@/constants/petcare-theme';
-import { parseInputDateTime, toInputDateTime } from '@/lib/date-utils';
+import { formatDateTime, parseInputDateTime, toInputDateTime } from '@/lib/date-utils';
 import { createReminder, getPet, getReminder, updateReminder } from '@/lib/petcare-db';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -24,9 +25,26 @@ export function ReminderFormScreen({ mode = 'create', petId, reminderId }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [showDueDatePicker, setShowDueDatePicker] = useState(false);
+  const [showDueTimePicker, setShowDueTimePicker] = useState(false);
+
+  const closeForm = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+
+    if (petId) {
+      router.replace(`/pets/${petId}`);
+      return;
+    }
+
+    router.replace('/(tabs)');
+  };
 
   useEffect(() => {
     let mounted = true;
+
     async function load() {
       if (!user?.uid || !petId) {
         return;
@@ -44,14 +62,13 @@ export function ReminderFormScreen({ mode = 'create', petId, reminderId }) {
           if (!mounted) {
             return;
           }
+
           if (reminder) {
             setTitle(reminder.title || '');
             setType(reminder.type || 'vaccine');
             setDueInput(toInputDateTime(reminder.dueDate));
             setRepeatType(reminder.repeatType || 'none');
-            setCustomDaysInterval(
-              reminder.customDaysInterval ? String(reminder.customDaysInterval) : ''
-            );
+            setCustomDaysInterval(reminder.customDaysInterval ? String(reminder.customDaysInterval) : '');
             setActive(Boolean(reminder.active));
             setLastNotifiedAt(reminder.lastNotifiedAt ?? null);
           } else {
@@ -104,6 +121,46 @@ export function ReminderFormScreen({ mode = 'create', petId, reminderId }) {
     return '';
   };
 
+  const getDueDateValue = () => parseInputDateTime(dueInput) || new Date();
+
+  const setDueDatePart = (selectedDate) => {
+    const current = getDueDateValue();
+    const next = new Date(current);
+    next.setFullYear(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+    setDueInput(toInputDateTime(next));
+  };
+
+  const setDueTimePart = (selectedDate) => {
+    const current = getDueDateValue();
+    const next = new Date(current);
+    next.setHours(selectedDate.getHours(), selectedDate.getMinutes(), 0, 0);
+    setDueInput(toInputDateTime(next));
+  };
+
+  const handleDueDateChange = (event, selectedDate) => {
+    if (Platform.OS === 'android') {
+      setShowDueDatePicker(false);
+    }
+
+    if (event?.type === 'dismissed' || !selectedDate) {
+      return;
+    }
+
+    setDueDatePart(selectedDate);
+  };
+
+  const handleDueTimeChange = (event, selectedDate) => {
+    if (Platform.OS === 'android') {
+      setShowDueTimePicker(false);
+    }
+
+    if (event?.type === 'dismissed' || !selectedDate) {
+      return;
+    }
+
+    setDueTimePart(selectedDate);
+  };
+
   const handleSubmit = async () => {
     const validationError = validate();
     setError(validationError);
@@ -121,8 +178,7 @@ export function ReminderFormScreen({ mode = 'create', petId, reminderId }) {
       type,
       dueDate,
       repeatType,
-      customDaysInterval:
-        repeatType === 'customDays' ? Number(customDaysInterval) || null : null,
+      customDaysInterval: repeatType === 'customDays' ? Number(customDaysInterval) || null : null,
       active,
     };
 
@@ -136,7 +192,7 @@ export function ReminderFormScreen({ mode = 'create', petId, reminderId }) {
           lastNotifiedAt,
         });
       }
-      router.back();
+      closeForm();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -169,12 +225,58 @@ export function ReminderFormScreen({ mode = 'create', petId, reminderId }) {
           ))}
         </View>
 
-        <Field
-          label="Tarih (YYYY-AA-GG SS:dd)"
-          value={dueInput}
-          onChangeText={setDueInput}
-          placeholder="2026-02-23 19:30"
-        />
+        {Platform.OS === 'web' ? (
+          <Field
+            label="Tarih (YYYY-AA-GG SS:dd)"
+            value={dueInput}
+            onChangeText={setDueInput}
+            placeholder="2026-02-23 19:30"
+          />
+        ) : (
+          <View style={styles.dateTimeFieldWrap}>
+            <Label>Tarih ve saat</Label>
+            <Pressable
+              onPress={() => setShowDueDatePicker(true)}
+              style={({ pressed }) => [styles.datePickerTrigger, pressed && { opacity: 0.92 }]}>
+              <Text style={styles.datePickerText}>{formatDateTime(getDueDateValue())}</Text>
+            </Pressable>
+
+            <View style={styles.inlineActions}>
+              <Button title="Tarih Seç" variant="secondary" onPress={() => setShowDueDatePicker(true)} style={{ flex: 1 }} />
+              <Button title="Saat Seç" variant="secondary" onPress={() => setShowDueTimePicker(true)} style={{ flex: 1 }} />
+            </View>
+
+            {showDueDatePicker ? (
+              <View style={styles.nativePickerWrap}>
+                <DateTimePicker
+                  value={getDueDateValue()}
+                  mode="date"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDueDateChange}
+                  textColor={PetCareTheme.colors.text}
+                />
+                {Platform.OS === 'ios' ? (
+                  <Button title="Tarih Seçiciyi Kapat" variant="secondary" onPress={() => setShowDueDatePicker(false)} />
+                ) : null}
+              </View>
+            ) : null}
+
+            {showDueTimePicker ? (
+              <View style={styles.nativePickerWrap}>
+                <DateTimePicker
+                  value={getDueDateValue()}
+                  mode="time"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDueTimeChange}
+                  textColor={PetCareTheme.colors.text}
+                />
+                {Platform.OS === 'ios' ? (
+                  <Button title="Saat Seçiciyi Kapat" variant="secondary" onPress={() => setShowDueTimePicker(false)} />
+                ) : null}
+              </View>
+            ) : null}
+          </View>
+        )}
 
         <Text style={styles.label}>Tekrar</Text>
         <View style={styles.grid}>
@@ -210,7 +312,7 @@ export function ReminderFormScreen({ mode = 'create', petId, reminderId }) {
         <ErrorText>{error}</ErrorText>
 
         <View style={styles.footerRow}>
-          <Button title="İptal" variant="secondary" onPress={() => router.back()} style={{ flex: 1 }} />
+          <Button title="İptal" variant="secondary" onPress={closeForm} style={{ flex: 1 }} />
           <Button
             title={mode === 'create' ? 'Kaydet' : 'Güncelle'}
             onPress={handleSubmit}
@@ -297,6 +399,30 @@ const styles = StyleSheet.create({
   },
   footerRow: {
     flexDirection: 'row',
+    gap: 8,
+  },
+  dateTimeFieldWrap: {
+    gap: 6,
+  },
+  datePickerTrigger: {
+    minHeight: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: PetCareTheme.colors.border,
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  datePickerText: {
+    color: PetCareTheme.colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  inlineActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  nativePickerWrap: {
     gap: 8,
   },
 });
