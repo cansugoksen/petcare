@@ -134,16 +134,17 @@ exports.generateAiAssistantSummary = onCall(
       throw new HttpsError('invalid-argument', 'petId gerekli.');
     }
 
-    if (!['healthSummary', 'vetSummary', 'reminderHelper'].includes(task)) {
+    if (!['healthSummary', 'vetSummary', 'reminderHelper', 'riskAnalysis'].includes(task)) {
       throw new HttpsError('invalid-argument', 'Geçersiz görev tipi.');
     }
 
     const petRef = db.collection('users').doc(uid).collection('pets').doc(petId);
-    const [petSnap, logsSnap, remindersSnap, weightsSnap] = await Promise.all([
+    const [petSnap, logsSnap, remindersSnap, weightsSnap, expensesSnap] = await Promise.all([
       petRef.get(),
       petRef.collection('logs').orderBy('loggedAt', 'desc').limit(AI_RECENT_LIMIT).get(),
       petRef.collection('reminders').orderBy('dueDate', 'asc').limit(AI_RECENT_LIMIT).get(),
       petRef.collection('weights').orderBy('measuredAt', 'desc').limit(AI_RECENT_LIMIT).get(),
+      petRef.collection('expenses').orderBy('expenseDate', 'desc').limit(AI_RECENT_LIMIT).get(),
     ]);
 
     if (!petSnap.exists) {
@@ -154,12 +155,15 @@ exports.generateAiAssistantSummary = onCall(
     const logs = logsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     const reminders = remindersSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
     const weights = weightsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const expenses = expensesSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
     let result;
     if (task === 'healthSummary') {
       result = buildAiHealthSummary(pet, logs);
     } else if (task === 'vetSummary') {
       result = buildAiVetSummary(pet, logs, reminders, weights);
+    } else if (task === 'riskAnalysis') {
+      result = buildAiRiskAnalysis(pet, logs, reminders, weights, expenses);
     } else {
       result = buildAiReminderSuggestion(pet, prompt);
     }
@@ -170,6 +174,7 @@ exports.generateAiAssistantSummary = onCall(
       logs,
       reminders,
       weights,
+      expenses,
       prompt,
       fallback: result,
     });
@@ -580,6 +585,236 @@ function buildAiReminderSuggestion(pet, inputRaw) {
   };
 }
 
+function buildAiRiskAnalysis(pet, logs, reminders, weights, expenses) {
+  const findings = [];
+
+  const weightRisk = serverAnalyzeWeightChange90d(weights);
+  if (weightRisk) findings.push(weightRisk);
+
+  const vetGapRisk = serverAnalyzeVetGap(reminders, expenses, logs);
+  if (vetGapRisk) findings.push(vetGapRisk);
+
+  const vaccineDelayRisk = serverAnalyzeVaccineDelay(reminders);
+  if (vaccineDelayRisk) findings.push(vaccineDelayRisk);
+
+  const expenseSpikeRisk = serverAnalyzeExpenseSpike(expenses);
+  if (expenseSpikeRisk) findings.push(expenseSpikeRisk);
+
+  const severity = highestSeverityLevel(findings.map((f) => f.severity));
+  const generatedAt = new Date().toLocaleString('tr-TR');
+
+  return {
+    title: `${pet.name || 'Pet'} için Sağlık Risk Analizi`,
+    meta: 'Sunucu kurallı analiz',
+    severity,
+    highlights: findings.length
+      ? findings.map((f) => `${severityLabelTR(f.severity)} • ${f.short}`)
+      : ['Belirgin risk sinyali bulunmadı', 'Düzenli takip sürdürülüyor'],
+    sections: findings.length
+      ? [
+          {
+            title: 'Tespit Edilen Sinyaller',
+            items: findings.map((f) => `${severityLabelTR(f.severity)}: ${f.description}`),
+          },
+          {
+            title: 'Öneriler',
+            items: uniqueStrings(findings.flatMap((f) => f.recommendations || [])),
+          },
+        ]
+      : [
+          {
+            title: 'Özet',
+            items: [
+              'Mevcut kayıtlarda yüksek öncelikli bir risk sinyali tespit edilmedi.',
+              'Düzenli kilo, not ve hatırlatma takibi önerilir.',
+            ],
+          },
+        ],
+    shareText: buildServerRiskShareText(pet, severity, findings, generatedAt),
+  };
+}
+
+function serverAnalyzeWeightChange90d(weights) {
+  const rows = (weights || [])
+    .map((w) => ({
+      value: Number(w.valueKg ?? w.weight),
+      date: toJsDate(w.measuredAt) || toJsDate(w.createdAt),
+    }))
+    .filter((w) => Number.isFinite(w.value) && w.date)
+    .sort((a, b) => a.date - b.date);
+
+  if (rows.length < 2) return null;
+  const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+  const in90 = rows.filter((r) => r.date.getTime() >= cutoff);
+  if (in90.length < 2) return null;
+
+  const first = in90[0];
+  const last = in90[in90.length - 1];
+  if (!first.value) return null;
+  const changePct = ((last.value - first.value) / first.value) * 100;
+
+  if (changePct <= -10) {
+    return {
+      severity: 'high',
+      short: '90 günde kilo düşüşü',
+      description: `Son 90 günde kilo yaklaşık %${Math.abs(changePct).toFixed(1)} azalmış görünüyor (${first.value} kg → ${last.value} kg).`,
+      recommendations: ['Kilo ölçümlerini doğrulayın ve veteriner görüşü planlayın.'],
+    };
+  }
+  if (changePct <= -5) {
+    return {
+      severity: 'medium',
+      short: 'Kilo düşüş trendi',
+      description: `Son 90 günde kilo yaklaşık %${Math.abs(changePct).toFixed(1)} azalmış görünüyor.`,
+      recommendations: ['Kilo takibini sıklaştırarak sağlık notları ile birlikte izleyin.'],
+    };
+  }
+  return null;
+}
+
+function serverAnalyzeVetGap(reminders, expenses, logs) {
+  const dates = [];
+  (reminders || []).forEach((r) => {
+    if (r.type === 'vetVisit') {
+      const d = toJsDate(r.dueDate);
+      if (d) dates.push(d.getTime());
+    }
+  });
+  (expenses || []).forEach((e) => {
+    if (e.category === 'vet') {
+      const d = toJsDate(e.expenseDate);
+      if (d) dates.push(d.getTime());
+    }
+  });
+  (logs || []).forEach((l) => {
+    const note = String(l.note || '').toLocaleLowerCase('tr-TR');
+    if (note.includes('vet') || note.includes('veteriner')) {
+      const d = toJsDate(l.loggedAt) || toJsDate(l.createdAt);
+      if (d) dates.push(d.getTime());
+    }
+  });
+
+  if (!dates.length) {
+    return {
+      severity: 'medium',
+      short: 'Veteriner kaydı yok',
+      description: 'Kayıtlarda veteriner ziyareti veya veteriner gideri görünmüyor.',
+      recommendations: ['Rutin veteriner kontrol periyodunu takvime ekleyin.'],
+    };
+  }
+
+  const gapDays = Math.floor((Date.now() - Math.max(...dates)) / (24 * 60 * 60 * 1000));
+  if (gapDays >= 365) {
+    return {
+      severity: 'high',
+      short: 'Veteriner kaydı uzun süredir yok',
+      description: `Son veteriner ilişkili kayıt yaklaşık ${gapDays} gün önce.`,
+      recommendations: ['Rutin kontrol ziyareti planlamayı değerlendirin.'],
+    };
+  }
+  if (gapDays >= 180) {
+    return {
+      severity: 'medium',
+      short: 'Veteriner kaydı 6+ ay',
+      description: `Son veteriner ilişkili kayıt yaklaşık ${gapDays} gün önce.`,
+      recommendations: ['Takvim ve hatırlatmaları gözden geçirerek kontrol tarihi planlayın.'],
+    };
+  }
+  return null;
+}
+
+function serverAnalyzeVaccineDelay(reminders) {
+  const now = Date.now();
+  const overdue = (reminders || []).filter((r) => {
+    if (!r.active || r.type !== 'vaccine') return false;
+    const due = toJsDate(r.dueDate)?.getTime() || 0;
+    return due > 0 && due < now;
+  });
+  if (!overdue.length) return null;
+  overdue.sort((a, b) => (toJsDate(a.dueDate)?.getTime() || 0) - (toJsDate(b.dueDate)?.getTime() || 0));
+  const oldestTs = toJsDate(overdue[0].dueDate)?.getTime() || now;
+  const lateDays = Math.max(1, Math.floor((now - oldestTs) / (24 * 60 * 60 * 1000)));
+
+  return {
+    severity: lateDays >= 30 ? 'high' : 'medium',
+    short: 'Aşı gecikmesi',
+    description: `${overdue.length} aktif aşı hatırlatması geçmiş tarihte görünüyor. En eski gecikme yaklaşık ${lateDays} gün.`,
+    recommendations: ['Aşı tarihlerini doğrulayın ve gerekirse veterinere danışın.'],
+  };
+}
+
+function serverAnalyzeExpenseSpike(expenses) {
+  const now = Date.now();
+  const ms30 = 30 * 24 * 60 * 60 * 1000;
+  let current = 0;
+  let previous = 0;
+
+  (expenses || []).forEach((e) => {
+    const ts = toJsDate(e.expenseDate)?.getTime() || 0;
+    const amount = Number(e.amount || 0);
+    if (!ts || !Number.isFinite(amount)) return;
+    if (ts >= now - ms30) current += amount;
+    else if (ts >= now - ms30 * 2) previous += amount;
+  });
+
+  if (current <= 0 || previous <= 0) return null;
+  const ratio = current / previous;
+  if (ratio >= 2) {
+    return {
+      severity: 'medium',
+      short: 'Gider artışı',
+      description: `Son 30 gün giderleri önceki 30 güne göre yaklaşık ${ratio.toFixed(1)} kat artmış görünüyor.`,
+      recommendations: ['Gider dağılımını kategori bazında inceleyin.'],
+    };
+  }
+  if (ratio >= 1.5) {
+    return {
+      severity: 'low',
+      short: 'Gider trendi yükseliyor',
+      description: `Son 30 gün giderleri önceki döneme göre artış gösteriyor (${ratio.toFixed(1)}x).`,
+      recommendations: ['Aylık giderleri takip ederek artış nedenini not edin.'],
+    };
+  }
+  return null;
+}
+
+function highestSeverityLevel(levels) {
+  if ((levels || []).includes('high')) return 'high';
+  if ((levels || []).includes('medium')) return 'medium';
+  return 'low';
+}
+
+function severityLabelTR(level) {
+  if (level === 'high') return 'Yüksek';
+  if (level === 'medium') return 'Orta';
+  return 'Düşük';
+}
+
+function uniqueStrings(items) {
+  return Array.from(new Set((items || []).filter(Boolean)));
+}
+
+function buildServerRiskShareText(pet, severity, findings, generatedAt) {
+  const lines = [
+    `PetCare Risk Analizi (${generatedAt})`,
+    `Pet: ${pet?.name || 'Pet'}`,
+    `Risk Seviyesi: ${severityLabelTR(severity)}`,
+    '',
+  ];
+  if (findings.length) {
+    lines.push('Tespitler:');
+    findings.forEach((f) => lines.push(`- ${severityLabelTR(f.severity)}: ${f.description}`));
+    lines.push('');
+    lines.push('Öneriler:');
+    uniqueStrings(findings.flatMap((f) => f.recommendations || [])).forEach((r) => lines.push(`- ${r}`));
+  } else {
+    lines.push('Belirgin risk sinyali tespit edilmedi.');
+  }
+  lines.push('');
+  lines.push('Not: Bu analiz bilgilendirme amaçlıdır, veteriner değerlendirmesinin yerine geçmez.');
+  return lines.join('\n');
+}
+
 function translateTag(tag) {
   if (tag === 'appetite') return 'İştah';
   if (tag === 'vomiting') return 'Kusma';
@@ -608,14 +843,14 @@ function formatDateTR(date, withTime = false) {
   ).format(date);
 }
 
-async function tryGenerateOpenAiSummary({ task, pet, logs, reminders, weights, prompt, fallback }) {
+async function tryGenerateOpenAiSummary({ task, pet, logs, reminders, weights, expenses, prompt, fallback }) {
   const apiKey = getOpenAiApiKeySafe();
   if (!apiKey) {
     return null;
   }
 
   try {
-    const payload = buildOpenAiPayload({ task, pet, logs, reminders, weights, prompt, fallback });
+    const payload = buildOpenAiPayload({ task, pet, logs, reminders, weights, expenses, prompt, fallback });
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -630,7 +865,7 @@ async function tryGenerateOpenAiSummary({ task, pet, logs, reminders, weights, p
           {
             role: 'system',
             content:
-              'Sen PetCare için yardımcı asistansın. Türkçe yaz. Teşhis koyma, tedavi önerme, veteriner yerine geçme. Kısa ve maddeli yaz. Sadece geçerli JSON dön. JSON formatı: {title, meta, highlights:string[], sections:[{title, items:string[]}]}',
+              'Sen PetCare için yardımcı asistansın. Türkçe yaz. Teşhis koyma, tedavi önerme, veteriner yerine geçme. Kısa ve maddeli yaz. Sadece geçerli JSON dön. JSON formatı: {title, meta, severity?, shareText?, highlights:string[], sections:[{title, items:string[]}]}',
           },
           {
             role: 'user',
@@ -678,7 +913,7 @@ function getOpenAiApiKeySafe() {
   return null;
 }
 
-function buildOpenAiPayload({ task, pet, logs, reminders, weights, prompt, fallback }) {
+function buildOpenAiPayload({ task, pet, logs, reminders, weights, expenses, prompt, fallback }) {
   return {
     task,
     prompt: String(prompt || '').slice(0, 600),
@@ -706,6 +941,11 @@ function buildOpenAiPayload({ task, pet, logs, reminders, weights, prompt, fallb
       recentWeights: weights.slice(0, 6).map((w) => ({
         weight: Number(w.weight || 0),
         date: formatDateTR(toJsDate(w.measuredAt) || toJsDate(w.createdAt)),
+      })),
+      recentExpenses: (expenses || []).slice(0, 8).map((e) => ({
+        amount: Number(e.amount || 0),
+        category: String(e.category || 'other'),
+        date: formatDateTR(toJsDate(e.expenseDate) || toJsDate(e.createdAt)),
       })),
     },
     fallbackDraft: fallback,
@@ -744,6 +984,8 @@ function normalizeAiOutput(obj) {
   return {
     title: String(obj.title || 'AI Özeti').slice(0, 120),
     meta: typeof obj.meta === 'string' ? obj.meta.slice(0, 120) : 'OpenAI özeti',
+    severity: ['low', 'medium', 'high'].includes(String(obj.severity || '')) ? String(obj.severity) : undefined,
+    shareText: typeof obj.shareText === 'string' ? obj.shareText.slice(0, 4000) : undefined,
     highlights: (Array.isArray(obj.highlights) ? obj.highlights : [])
       .map((v) => String(v).trim())
       .filter(Boolean)

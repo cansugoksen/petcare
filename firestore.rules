@@ -9,6 +9,30 @@ service cloud.firestore {
       return isAuthed() && request.auth.uid == uid;
     }
 
+    function petMemberDoc(petId) {
+      return get(/databases/$(database)/documents/pets/$(petId)/members/$(request.auth.uid));
+    }
+
+    function isPetMember(petId) {
+      return isAuthed() && petMemberDoc(petId).exists();
+    }
+
+    function petRole(petId) {
+      return isPetMember(petId) ? petMemberDoc(petId).data.role : null;
+    }
+
+    function canReadSharedPet(petId) {
+      return isPetMember(petId);
+    }
+
+    function canWriteSharedPetData(petId) {
+      return petRole(petId) in ['owner', 'family'];
+    }
+
+    function isSharedPetOwner(petId) {
+      return petRole(petId) == 'owner';
+    }
+
     match /users/{uid} {
       allow read, write: if isOwner(uid);
 
@@ -24,6 +48,18 @@ service cloud.firestore {
         }
 
         match /logs/{logId} {
+          allow read, write: if isOwner(uid);
+        }
+
+        match /expenses/{expenseId} {
+          allow read, write: if isOwner(uid);
+        }
+
+        match /events/{eventId} {
+          allow read, write: if isOwner(uid);
+        }
+
+        match /documents/{documentId} {
           allow read, write: if isOwner(uid);
         }
       }
@@ -52,6 +88,57 @@ service cloud.firestore {
         allow create: if isAuthed();
         allow update, delete: if isAuthed() && resource.data.uid == request.auth.uid;
       }
+    }
+
+    // Shared pets model (V2.1 draft)
+    match /pets/{petId} {
+      allow read: if canReadSharedPet(petId);
+      allow create: if isAuthed();
+      allow update: if canWriteSharedPetData(petId);
+      allow delete: if isSharedPetOwner(petId);
+
+      match /members/{memberUid} {
+        allow read: if canReadSharedPet(petId);
+        allow create: if isSharedPetOwner(petId) || (isAuthed() && request.auth.uid == memberUid);
+        allow update: if isSharedPetOwner(petId);
+        allow delete: if isSharedPetOwner(petId);
+      }
+
+      match /reminders/{reminderId} {
+        allow read: if canReadSharedPet(petId);
+        allow write: if canWriteSharedPetData(petId);
+      }
+
+      match /weights/{entryId} {
+        allow read: if canReadSharedPet(petId);
+        allow write: if canWriteSharedPetData(petId);
+      }
+
+      match /logs/{logId} {
+        allow read: if canReadSharedPet(petId);
+        allow write: if canWriteSharedPetData(petId);
+      }
+
+      match /expenses/{expenseId} {
+        allow read: if canReadSharedPet(petId);
+        allow write: if canWriteSharedPetData(petId);
+      }
+
+      match /events/{eventId} {
+        allow read: if canReadSharedPet(petId);
+        allow write: if canWriteSharedPetData(petId);
+      }
+
+      match /documents/{documentId} {
+        allow read: if canReadSharedPet(petId);
+        allow write: if canWriteSharedPetData(petId);
+      }
+    }
+
+    match /petInvites/{inviteId} {
+      allow read: if isAuthed();
+      allow create: if isAuthed();
+      allow update, delete: if isAuthed();
     }
 
     match /{document=**} {

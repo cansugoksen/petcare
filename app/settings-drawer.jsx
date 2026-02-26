@@ -2,10 +2,14 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AuthGate } from '@/components/pc/auth-guard';
 import { Chip } from '@/components/pc/ui';
+import { getFirstAccessiblePetId } from '@/lib/petcare-db';
 import { useAuth } from '@/providers/auth-provider';
+
+const LAST_VIEWED_PET_KEY = 'petcare:lastViewedPetId';
 
 export default function SettingsDrawerRoute() {
   return (
@@ -36,25 +40,21 @@ function SettingsDrawerScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert(
-      'Çıkış yap',
-      'Hesap oturumu kapatılacak. Başlangıç ekranına yönlendirileceksiniz.',
-      [
-        { text: 'Vazgeç', style: 'cancel' },
-        {
-          text: 'Çıkış Yap',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOutToAnonymous();
-              router.replace('/auth/welcome');
-            } catch (err) {
-              Alert.alert('Hata', err.message);
-            }
-          },
+    Alert.alert('Çıkış yap', 'Hesap oturumu kapatılacak. Başlangıç ekranına yönlendirileceksiniz.', [
+      { text: 'Vazgeç', style: 'cancel' },
+      {
+        text: 'Çıkış Yap',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await signOutToAnonymous();
+            router.replace('/auth/welcome');
+          } catch (err) {
+            Alert.alert('Hata', err.message);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleAnonymousMode = () => {
@@ -74,6 +74,107 @@ function SettingsDrawerScreen() {
         },
       },
     ]);
+  };
+
+  const openFamilyAccess = async () => {
+    closeDrawer();
+    try {
+      const lastPetId = await AsyncStorage.getItem(LAST_VIEWED_PET_KEY);
+      if (lastPetId) {
+        router.push(`/pets/${lastPetId}/family-access`);
+        return;
+      }
+    } catch {}
+
+    try {
+      const firstPetId = await getFirstAccessiblePetId(user?.uid);
+      if (firstPetId) {
+        router.push(`/pets/${firstPetId}/family-access`);
+        return;
+      }
+    } catch {}
+
+    router.push('/(tabs)/pets');
+    setTimeout(() => {
+      Alert.alert('Aile & Erişim', 'Henüz pet bulunamadı. Önce bir pet ekleyin veya pet detayını açın.');
+    }, 250);
+  };
+
+  const openPetAlbum = async () => {
+    closeDrawer();
+    try {
+      const lastPetId = await AsyncStorage.getItem(LAST_VIEWED_PET_KEY);
+      if (lastPetId) {
+        router.push(`/pets/${lastPetId}?tab=album`);
+        return;
+      }
+    } catch {}
+
+    try {
+      const firstPetId = await getFirstAccessiblePetId(user?.uid);
+      if (firstPetId) {
+        router.push(`/pets/${firstPetId}?tab=album`);
+        return;
+      }
+    } catch {}
+
+    router.push('/(tabs)/pets');
+    setTimeout(() => {
+      Alert.alert('Pet Yaşam Albümü', 'Henüz pet bulunamadı. Önce bir pet ekleyin veya pet detayını açın.');
+    }, 250);
+  };
+
+  const openPetDigitalId = async () => {
+    closeDrawer();
+    try {
+      const lastPetId = await AsyncStorage.getItem(LAST_VIEWED_PET_KEY);
+      if (lastPetId) {
+        router.push(`/pets/${lastPetId}/digital-id`);
+        return;
+      }
+    } catch {}
+
+    try {
+      const firstPetId = await getFirstAccessiblePetId(user?.uid);
+      if (firstPetId) {
+        router.push(`/pets/${firstPetId}/digital-id`);
+        return;
+      }
+    } catch {}
+
+    router.push('/(tabs)/pets');
+    setTimeout(() => {
+      Alert.alert('Dijital Kimlik / QR Kart', 'Henüz pet bulunamadı. Önce bir pet ekleyin veya pet detayını açın.');
+    }, 250);
+  };
+
+  const openMedicalDocuments = async () => {
+    closeDrawer();
+    try {
+      const lastPetId = await AsyncStorage.getItem(LAST_VIEWED_PET_KEY);
+      if (lastPetId) {
+        router.push(`/pets/${lastPetId}/documents/index`);
+        return;
+      }
+    } catch {}
+
+    try {
+      const firstPetId = await getFirstAccessiblePetId(user?.uid);
+      if (firstPetId) {
+        router.push(`/pets/${firstPetId}/documents/index`);
+        return;
+      }
+    } catch {}
+
+    router.push('/(tabs)/pets');
+    setTimeout(() => {
+      Alert.alert('Sağlık Belgeleri', 'Henüz pet bulunamadı. Önce bir pet ekleyin veya pet detayını açın.');
+    }, 250);
+  };
+
+  const openNearby = () => {
+    closeDrawer();
+    router.push('/nearby');
   };
 
   const menuItems = [
@@ -96,6 +197,30 @@ function SettingsDrawerScreen() {
       },
     },
     {
+      key: 'family-access',
+      icon: 'groups',
+      label: 'Aile & Erişim',
+      onPress: openFamilyAccess,
+    },
+    {
+      key: 'pet-life-album',
+      icon: 'auto-stories',
+      label: 'Pet Yaşam Albümü',
+      onPress: openPetAlbum,
+    },
+    {
+      key: 'pet-digital-id',
+      icon: 'qr-code-2',
+      label: 'Dijital Kimlik / QR Kart',
+      onPress: openPetDigitalId,
+    },
+    {
+      key: 'medical-docs',
+      icon: 'folder-open',
+      label: 'Sağlık Belgeleri',
+      onPress: openMedicalDocuments,
+    },
+    {
       key: 'reminders',
       icon: 'notifications-none',
       label: 'Hatırlatıcılar',
@@ -103,6 +228,12 @@ function SettingsDrawerScreen() {
         closeDrawer();
         router.push('/(tabs)/pets');
       },
+    },
+    {
+      key: 'nearby',
+      icon: 'place',
+      label: 'Yakınımda',
+      onPress: openNearby,
     },
     {
       key: 'social',
@@ -205,8 +336,17 @@ function SettingsDrawerScreen() {
 
           {!isAnonymous ? (
             <>
-              <MenuRow icon="person-outline" label={authBusy ? 'Geçiş yapılıyor...' : 'Anonim Moda Dön'} onPress={authBusy ? () => {} : handleAnonymousMode} />
-              <MenuRow icon="power-settings-new" label={authBusy ? 'İşlem yapılıyor...' : 'Çıkış Yap'} onPress={authBusy ? () => {} : handleSignOut} danger />
+              <MenuRow
+                icon="person-outline"
+                label={authBusy ? 'Geçiş yapılıyor...' : 'Anonim Moda Dön'}
+                onPress={authBusy ? () => {} : handleAnonymousMode}
+              />
+              <MenuRow
+                icon="power-settings-new"
+                label={authBusy ? 'İşlem yapılıyor...' : 'Çıkış Yap'}
+                onPress={authBusy ? () => {} : handleSignOut}
+                danger
+              />
             </>
           ) : (
             <MenuRow
@@ -228,6 +368,14 @@ function SettingsDrawerScreen() {
                 onPress={() => {
                   closeDrawer();
                   router.push('/dev/push-test');
+                }}
+              />
+              <MenuRow
+                icon="cloud-upload"
+                label="Storage Health Check"
+                onPress={() => {
+                  closeDrawer();
+                  router.push('/dev/storage-health');
                 }}
               />
             </>

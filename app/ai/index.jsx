@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 
 import { AuthGate } from '@/components/pc/auth-guard';
 import { Button, Card, Chip, Field, Screen } from '@/components/pc/ui';
@@ -9,6 +9,7 @@ import { PetCareTheme, healthLogTags } from '@/constants/petcare-theme';
 import { formatDateOnly, formatDateTime, toDate } from '@/lib/date-utils';
 import { generateAiAssistantSummary } from '@/lib/ai-assistant';
 import {
+  subscribeExpenses,
   subscribeHealthLogs,
   subscribePets,
   subscribeReminders,
@@ -30,6 +31,12 @@ const TASKS = [
     description: 'Kilo, son notlar ve aktif hatırlatmaları tek özet halinde sunar.',
   },
   {
+    key: 'riskAnalysis',
+    icon: 'health-and-safety',
+    title: 'Risk Analizi',
+    description: 'Kilo, aşı, veteriner ve gider trendleri için risk sinyalleri üretir.',
+  },
+  {
     key: 'reminderHelper',
     icon: 'auto-awesome',
     title: 'Hatırlatma Yardımcısı',
@@ -49,17 +56,29 @@ export default function AiAssistantRoute() {
 
 function AiAssistantScreen() {
   const { user } = useAuth();
+  const params = useLocalSearchParams();
+  const requestedPetId = Array.isArray(params.petId) ? params.petId[0] : params.petId;
+  const requestedTask = Array.isArray(params.task) ? params.task[0] : params.task;
+  const requestedTimelineMonth = Array.isArray(params.timelineMonth) ? params.timelineMonth[0] : params.timelineMonth;
+  const requestedTimelineFilter = Array.isArray(params.timelineFilter) ? params.timelineFilter[0] : params.timelineFilter;
   const [pets, setPets] = useState([]);
   const [selectedPetId, setSelectedPetId] = useState(null);
   const [logs, setLogs] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [weights, setWeights] = useState([]);
+  const [expenses, setExpenses] = useState([]);
   const [activeTask, setActiveTask] = useState('healthSummary');
   const [assistantInput, setAssistantInput] = useState('');
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const [lastSource, setLastSource] = useState('local');
+
+  useEffect(() => {
+    if (requestedTask && TASKS.some((t) => t.key === requestedTask)) {
+      setActiveTask(requestedTask);
+    }
+  }, [requestedTask]);
 
   useEffect(() => {
     if (!user?.uid) {
@@ -82,14 +101,20 @@ function AiAssistantScreen() {
       return;
     }
 
-    setSelectedPetId((prev) => (prev && pets.some((pet) => pet.id === prev) ? prev : pets[0].id));
-  }, [pets]);
+    setSelectedPetId((prev) => {
+      if (requestedPetId && pets.some((pet) => pet.id === requestedPetId)) {
+        return requestedPetId;
+      }
+      return prev && pets.some((pet) => pet.id === prev) ? prev : pets[0].id;
+    });
+  }, [pets, requestedPetId]);
 
   useEffect(() => {
     if (!user?.uid || !selectedPetId) {
       setLogs([]);
       setReminders([]);
       setWeights([]);
+      setExpenses([]);
       return undefined;
     }
 
@@ -97,6 +122,7 @@ function AiAssistantScreen() {
       subscribeHealthLogs(user.uid, selectedPetId, setLogs, () => {}),
       subscribeReminders(user.uid, selectedPetId, setReminders, () => {}),
       subscribeWeights(user.uid, selectedPetId, setWeights, () => {}),
+      subscribeExpenses(user.uid, selectedPetId, setExpenses, () => {}),
     ];
 
     return () => {
@@ -105,6 +131,13 @@ function AiAssistantScreen() {
   }, [user?.uid, selectedPetId]);
 
   const selectedPet = useMemo(() => pets.find((pet) => pet.id === selectedPetId) || null, [pets, selectedPetId]);
+  const timelineContextLabel = useMemo(() => {
+    if (!requestedTimelineMonth && !requestedTimelineFilter) return '';
+    const parts = [];
+    if (requestedTimelineMonth) parts.push(requestedTimelineMonth);
+    if (requestedTimelineFilter && requestedTimelineFilter !== 'all') parts.push(`filtre: ${requestedTimelineFilter}`);
+    return parts.join(' • ');
+  }, [requestedTimelineFilter, requestedTimelineMonth]);
 
   const quickStats = useMemo(() => {
     const now = Date.now();
@@ -153,6 +186,8 @@ function AiAssistantScreen() {
           next = buildHealthSummary(selectedPet, logs);
         } else if (activeTask === 'vetSummary') {
           next = buildVetVisitSummary(selectedPet, logs, reminders, weights);
+        } else if (activeTask === 'riskAnalysis') {
+          next = buildRiskAnalysis(selectedPet, logs, reminders, weights, expenses);
         } else {
           next = buildReminderSuggestion(selectedPet, assistantInput);
         }
@@ -178,6 +213,19 @@ function AiAssistantScreen() {
       Alert.alert('AI Asistan', err.message || 'Özet hazırlanırken bir hata oluştu.');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleShareWithVet = async () => {
+    if (!result) return;
+    const text = result.shareText || buildShareText(selectedPet, result);
+    try {
+      await Share.share({
+        title: `${selectedPet?.name || 'Pet'} - Risk Analizi`,
+        message: text,
+      });
+    } catch (err) {
+      Alert.alert('Paylaşım', err.message || 'Paylaşım başlatılamadı.');
     }
   };
 
@@ -207,6 +255,12 @@ function AiAssistantScreen() {
           <StatBadge icon="notifications-active" label={`${quickStats.remindersThisWeek} bu hafta`} />
       <StatBadge icon="timeline" label={`${quickStats.weights} kilo`} />
         </View>
+        {requestedTask === 'riskAnalysis' && timelineContextLabel ? (
+          <View style={styles.contextBanner}>
+            <MaterialIcons name="insights" size={14} color="#2A6B98" />
+            <Text style={styles.contextBannerText}>Timeline bağlamı: {timelineContextLabel}</Text>
+          </View>
+        ) : null}
       </Card>
 
       {error ? (
@@ -320,6 +374,7 @@ function AiAssistantScreen() {
               <Text style={styles.resultTitle}>{result.title}</Text>
               <Text style={styles.resultMeta}>{result.meta}</Text>
             </View>
+            {result.severity ? <RiskBadge severity={result.severity} /> : null}
           </View>
 
           {result.highlights?.length ? (
@@ -341,6 +396,12 @@ function AiAssistantScreen() {
               ))}
             </View>
           ))}
+
+          {result.shareText ? (
+            <View style={styles.resultActionsRow}>
+              <Button title="Veteriner ile paylaş" variant="secondary" onPress={handleShareWithVet} style={{ flex: 1 }} />
+            </View>
+          ) : null}
 
           <View style={styles.disclaimerCard}>
             <MaterialIcons name="info-outline" size={16} color="#7B6505" />
@@ -527,6 +588,281 @@ function buildReminderSuggestion(pet, rawInput) {
   };
 }
 
+function buildRiskAnalysis(pet, logs, reminders, weights, expenses) {
+  const now = Date.now();
+  const findings = [];
+
+  const weightRisk = analyzeWeightChange90d(weights);
+  if (weightRisk) findings.push(weightRisk);
+
+  const vetGapRisk = analyzeVetGap(reminders, expenses, logs);
+  if (vetGapRisk) findings.push(vetGapRisk);
+
+  const vaccineDelayRisk = analyzeVaccineDelay(reminders);
+  if (vaccineDelayRisk) findings.push(vaccineDelayRisk);
+
+  const expenseSpikeRisk = analyzeExpenseSpike(expenses);
+  if (expenseSpikeRisk) findings.push(expenseSpikeRisk);
+
+  const severity = findings.length ? highestSeverity(findings.map((f) => f.severity)) : 'low';
+
+  const highlights = findings.length
+    ? findings.map((f) => `${severityLabel(f.severity)} • ${f.short}`)
+    : ['Belirgin risk sinyali bulunmadı', 'Kayıtlar düzenli takip ediliyor'];
+
+  const sections = findings.length
+    ? [
+        {
+          title: 'Tespit Edilen Sinyaller',
+          items: findings.map((f) => `${severityLabel(f.severity)}: ${f.description}`),
+        },
+        {
+          title: 'Öneriler',
+          items: dedupe(findings.flatMap((f) => f.recommendations || [])),
+        },
+      ]
+    : [
+        {
+          title: 'Özet',
+          items: [
+            'Seçili pet için mevcut kayıtlarda yüksek öncelikli bir risk sinyali tespit edilmedi.',
+            'Düzenli kilo ölçümü, sağlık notu ve veteriner kayıtlarını sürdürmeniz önerilir.',
+          ],
+        },
+      ];
+
+  const generatedAt = new Date(now).toLocaleString('tr-TR');
+  const shareText = buildRiskShareText(pet, severity, findings, generatedAt);
+
+  return {
+    title: `${pet.name} için Sağlık Risk Analizi`,
+    meta: `Kurallı analiz • ${generatedAt}`,
+    severity,
+    highlights,
+    sections,
+    shareText,
+  };
+}
+
+function analyzeWeightChange90d(weights) {
+  if (!weights.length) return null;
+  const sorted = [...weights]
+    .map((w) => ({ ...w, _d: toDate(w.measuredAt || w.createdAt), _v: Number(w.valueKg ?? w.weight) }))
+    .filter((w) => w._d && Number.isFinite(w._v))
+    .sort((a, b) => a._d.getTime() - b._d.getTime());
+  if (sorted.length < 2) return null;
+
+  const now = Date.now();
+  const cutoff = now - 90 * 24 * 60 * 60 * 1000;
+  const in90 = sorted.filter((w) => w._d.getTime() >= cutoff);
+  if (in90.length < 2) return null;
+
+  const first = in90[0];
+  const last = in90[in90.length - 1];
+  if (!first._v) return null;
+  const changePct = ((last._v - first._v) / first._v) * 100;
+
+  if (changePct <= -10) {
+    return {
+      code: 'weight_loss_90d_high',
+      severity: 'high',
+      short: '90 günde kilo düşüşü',
+      description: `Son 90 günde kilo yaklaşık %${Math.abs(changePct).toFixed(1)} azalmış görünüyor (${first._v} kg → ${last._v} kg).`,
+      recommendations: ['Kilo ölçümlerini doğrulayın ve veteriner değerlendirmesi planlayın.', 'Yeni bir kilo kontrol hatırlatması oluşturun.'],
+    };
+  }
+  if (changePct <= -5) {
+    return {
+      code: 'weight_loss_90d_medium',
+      severity: 'medium',
+      short: 'Kilo düşüş trendi',
+      description: `Son 90 günde kilo yaklaşık %${Math.abs(changePct).toFixed(1)} azalmış görünüyor.`,
+      recommendations: ['Kilo takibini sıklaştırın ve belirtilerle birlikte gözlemleyin.'],
+    };
+  }
+  return null;
+}
+
+function analyzeVetGap(reminders, expenses, logs) {
+  const now = Date.now();
+  const candidateDates = [];
+
+  reminders.forEach((r) => {
+    if (r.type === 'vetVisit') {
+      const d = toDate(r.dueDate);
+      if (d) candidateDates.push(d.getTime());
+    }
+  });
+
+  expenses.forEach((e) => {
+    if (e.category === 'vet') {
+      const d = toDate(e.expenseDate);
+      if (d) candidateDates.push(d.getTime());
+    }
+  });
+
+  logs.slice(0, 50).forEach((l) => {
+    const note = String(l.note || '').toLocaleLowerCase('tr-TR');
+    if (note.includes('veteriner') || note.includes('vet')) {
+      const d = toDate(l.loggedAt || l.createdAt);
+      if (d) candidateDates.push(d.getTime());
+    }
+  });
+
+  if (!candidateDates.length) {
+    return {
+      code: 'vet_gap_no_record',
+      severity: 'medium',
+      short: 'Veteriner kaydı yok',
+      description: 'Kayıtlarda veteriner ziyareti veya veteriner gideri görünmüyor.',
+      recommendations: ['Rutin veteriner kontrol sıklığını pet yaşına göre planlayın.'],
+    };
+  }
+
+  const lastTs = Math.max(...candidateDates);
+  const gapDays = Math.floor((now - lastTs) / (24 * 60 * 60 * 1000));
+  if (gapDays >= 365) {
+    return {
+      code: 'vet_gap_12m',
+      severity: 'high',
+      short: 'Veteriner kaydı uzun süredir yok',
+      description: `Son veteriner ilişkili kayıt yaklaşık ${gapDays} gün önce.`,
+      recommendations: ['Rutin kontrol için veteriner randevusu planlamayı değerlendirin.'],
+    };
+  }
+  if (gapDays >= 180) {
+    return {
+      code: 'vet_gap_6m',
+      severity: 'medium',
+      short: 'Veteriner kaydı 6+ ay',
+      description: `Son veteriner ilişkili kayıt yaklaşık ${gapDays} gün önce.`,
+      recommendations: ['Kontrol ziyareti zamanı yaklaşmış olabilir; takvimi gözden geçirin.'],
+    };
+  }
+  return null;
+}
+
+function analyzeVaccineDelay(reminders) {
+  const now = Date.now();
+  const overdue = reminders.filter((r) => {
+    if (r.type !== 'vaccine' || !r.active) return false;
+    const due = toDate(r.dueDate)?.getTime() ?? 0;
+    return due > 0 && due < now;
+  });
+  if (!overdue.length) return null;
+
+  overdue.sort((a, b) => (toDate(a.dueDate)?.getTime() ?? 0) - (toDate(b.dueDate)?.getTime() ?? 0));
+  const oldest = overdue[0];
+  const dueMs = toDate(oldest.dueDate)?.getTime() ?? now;
+  const lateDays = Math.max(1, Math.floor((now - dueMs) / (24 * 60 * 60 * 1000)));
+
+  return {
+    code: 'vaccine_overdue',
+    severity: lateDays >= 30 ? 'high' : 'medium',
+    short: 'Aşı gecikmesi',
+    description: `${overdue.length} aktif aşı hatırlatması geçmiş tarihte görünüyor. En eski gecikme yaklaşık ${lateDays} gün.`,
+    recommendations: ['Aşı kayıtlarını güncelleyin veya veteriner ile tarih doğrulaması yapın.'],
+  };
+}
+
+function analyzeExpenseSpike(expenses) {
+  if (!expenses.length) return null;
+  const now = Date.now();
+  const ms30 = 30 * 24 * 60 * 60 * 1000;
+  const currentStart = now - ms30;
+  const prevStart = now - ms30 * 2;
+
+  let current = 0;
+  let previous = 0;
+  expenses.forEach((e) => {
+    const ts = toDate(e.expenseDate)?.getTime() ?? 0;
+    const amount = Number(e.amount || 0);
+    if (!Number.isFinite(amount) || ts <= 0) return;
+    if (ts >= currentStart && ts <= now) current += amount;
+    else if (ts >= prevStart && ts < currentStart) previous += amount;
+  });
+
+  if (current <= 0 || previous <= 0) return null;
+  const ratio = current / previous;
+  if (ratio >= 2) {
+    return {
+      code: 'expense_spike_high',
+      severity: 'medium',
+      short: 'Gider artışı',
+      description: `Son 30 gün giderleri önceki 30 güne göre yaklaşık ${ratio.toFixed(1)} kat artmış görünüyor.`,
+      recommendations: ['Giderlerin hangi kategoride arttığını inceleyin ve timeline üzerinden detaylara bakın.'],
+    };
+  }
+  if (ratio >= 1.5) {
+    return {
+      code: 'expense_spike_medium',
+      severity: 'low',
+      short: 'Gider trendi yükseliyor',
+      description: `Son 30 gün giderleri önceki döneme göre artış gösteriyor (${ratio.toFixed(1)}x).`,
+      recommendations: ['Aylık gider dağılımını kontrol ederek kategorileri gözden geçirin.'],
+    };
+  }
+  return null;
+}
+
+function highestSeverity(list) {
+  if (list.includes('high')) return 'high';
+  if (list.includes('medium')) return 'medium';
+  return 'low';
+}
+
+function severityLabel(severity) {
+  if (severity === 'high') return 'Yüksek';
+  if (severity === 'medium') return 'Orta';
+  return 'Düşük';
+}
+
+function dedupe(list) {
+  return Array.from(new Set((list || []).filter(Boolean)));
+}
+
+function buildRiskShareText(pet, severity, findings, generatedAt) {
+  const lines = [
+    `PetCare Risk Analizi (${generatedAt})`,
+    `Pet: ${pet?.name || 'Pet'}`,
+    `Risk Seviyesi: ${severityLabel(severity)}`,
+    '',
+  ];
+
+  if (findings.length) {
+    lines.push('Tespitler:');
+    findings.forEach((f) => lines.push(`- ${severityLabel(f.severity)}: ${f.description}`));
+    lines.push('');
+    lines.push('Öneriler:');
+    dedupe(findings.flatMap((f) => f.recommendations || [])).forEach((rec) => lines.push(`- ${rec}`));
+  } else {
+    lines.push('Belirgin risk sinyali tespit edilmedi.');
+    lines.push('Düzenli takip önerilir.');
+  }
+
+  lines.push('');
+  lines.push('Not: Bu analiz bilgilendirme amaçlıdır, veteriner değerlendirmesinin yerine geçmez.');
+  return lines.join('\n');
+}
+
+function buildShareText(pet, result) {
+  return [`PetCare Özeti`, `Pet: ${pet?.name || '-'}`, result?.title || 'Özet', result?.meta || ''].filter(Boolean).join('\n');
+}
+
+function RiskBadge({ severity }) {
+  const tones = {
+    low: { bg: '#EEF9F4', border: '#CFEBDD', color: '#297A5E', label: 'Düşük' },
+    medium: { bg: '#FFF8EA', border: '#F1E0BB', color: '#9A6C18', label: 'Orta' },
+    high: { bg: '#FFF2F4', border: '#F0CDD4', color: '#B8404E', label: 'Yüksek' },
+  };
+  const t = tones[severity] || tones.low;
+  return (
+    <View style={[styles.riskBadge, { backgroundColor: t.bg, borderColor: t.border }]}>
+      <Text style={[styles.riskBadgeText, { color: t.color }]}>{t.label}</Text>
+    </View>
+  );
+}
+
 function StatBadge({ icon, label }) {
   return (
     <View style={styles.statBadge}>
@@ -596,6 +932,24 @@ const styles = StyleSheet.create({
     color: '#486B86',
     fontSize: 12,
     fontWeight: '600',
+  },
+  contextBanner: {
+    marginTop: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#D8E8F7',
+    backgroundColor: '#F7FBFF',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  contextBannerText: {
+    color: '#4F728E',
+    fontSize: 11,
+    fontWeight: '600',
+    flex: 1,
   },
   errorCard: {
     borderColor: '#F0CAD0',
@@ -753,6 +1107,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 1,
   },
+  riskBadge: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignSelf: 'flex-start',
+  },
+  riskBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   highlightRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -783,6 +1148,10 @@ const styles = StyleSheet.create({
     color: PetCareTheme.colors.textMuted,
     fontSize: 12,
     lineHeight: 18,
+  },
+  resultActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
   disclaimerCard: {
     flexDirection: 'row',

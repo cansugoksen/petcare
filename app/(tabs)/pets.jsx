@@ -9,7 +9,7 @@ import { Button, Card, EmptyState, Screen } from '@/components/pc/ui';
 import { getPetGenderLabel, getPetSpeciesLabel, PetCareTheme } from '@/constants/petcare-theme';
 import { formatDateOnly } from '@/lib/date-utils';
 import { deleteLocalFileIfExists } from '@/lib/media';
-import { deletePet, subscribePets } from '@/lib/petcare-db';
+import { deletePet, subscribePets, subscribeSharedPet, subscribeSharedPetMemberships } from '@/lib/petcare-db';
 import { useAuth } from '@/providers/auth-provider';
 
 export default function PetsTab() {
@@ -22,7 +22,9 @@ export default function PetsTab() {
 
 function PetsTabContent() {
   const { user } = useAuth();
-  const [pets, setPets] = useState([]);
+  const [legacyPets, setLegacyPets] = useState([]);
+  const [sharedMemberships, setSharedMemberships] = useState([]);
+  const [sharedPetsById, setSharedPetsById] = useState({});
   const [error, setError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
@@ -32,7 +34,7 @@ function PetsTabContent() {
     const unsubscribe = subscribePets(
       user.uid,
       (rows) => {
-        setPets(rows);
+        setLegacyPets(rows);
         setError(null);
       },
       (err) => setError(err)
@@ -41,9 +43,81 @@ function PetsTabContent() {
     return unsubscribe;
   }, [user?.uid]);
 
+  useEffect(() => {
+    if (!user?.uid) return undefined;
+
+    const unsubscribe = subscribeSharedPetMemberships(
+      user.uid,
+      (rows) => {
+        setSharedMemberships(rows);
+      },
+      () => {
+        // Shared pets draft altyapısı henüz her kullanıcıda aktif olmayabilir.
+      }
+    );
+
+    return unsubscribe;
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!sharedMemberships.length) {
+      setSharedPetsById({});
+      return undefined;
+    }
+
+    let active = true;
+    const nextMap = {};
+    const unsubscribers = sharedMemberships.map((membership) => {
+      const petId = membership.petId || membership.id;
+      return subscribeSharedPet(
+        petId,
+        (pet) => {
+          if (!active) return;
+          if (pet) nextMap[petId] = pet;
+          else delete nextMap[petId];
+          setSharedPetsById({ ...nextMap });
+        },
+        () => {}
+      );
+    });
+
+    return () => {
+      active = false;
+      unsubscribers.forEach((unsubscribe) => unsubscribe && unsubscribe());
+    };
+  }, [sharedMemberships]);
+
+  const pets = useMemo(() => {
+    const legacy = legacyPets.map((pet) => ({ ...pet, _source: 'legacy', _role: 'owner' }));
+    const legacyIds = new Set(legacy.map((pet) => pet.id));
+
+    const shared = sharedMemberships
+      .map((membership) => {
+        const petId = membership.petId || membership.id;
+        if (!petId || legacyIds.has(petId)) return null;
+        const pet = sharedPetsById[petId];
+        if (!pet) return null;
+        return {
+          ...pet,
+          id: petId,
+          _source: 'shared',
+          _role: membership.role || 'viewer',
+          _membership: membership,
+        };
+      })
+      .filter(Boolean);
+
+    return [...legacy, ...shared];
+  }, [legacyPets, sharedMemberships, sharedPetsById]);
+
   const summary = useMemo(() => buildPetSummary(pets), [pets]);
 
   const handleDelete = (pet) => {
+    if (pet._source === 'shared') {
+      Alert.alert('Bilgi', 'Ortak pet kaydı bu ekrandan silinemez.');
+      return;
+    }
+
     Alert.alert('Pet silinsin mi?', `${pet.name} kaydı ve alt verileri silinecek.`, [
       { text: 'Vazgeç', style: 'cancel' },
       {
@@ -63,6 +137,22 @@ function PetsTabContent() {
         },
       },
     ]);
+  };
+
+  const handleOpenPet = (pet) => {
+    if (pet._source === 'shared') {
+      Alert.alert('Hazırlanıyor', 'Ortak pet detay ekranı yeni veri modeline taşınıyor.');
+      return;
+    }
+    router.push(`/pets/${pet.id}`);
+  };
+
+  const handleEditPet = (pet) => {
+    if (pet._source === 'shared') {
+      Alert.alert('Hazırlanıyor', 'Ortak pet düzenleme akışı sonraki adımda açılacak.');
+      return;
+    }
+    router.push(`/pets/${pet.id}/edit`);
   };
 
   return (
@@ -106,66 +196,76 @@ function PetsTabContent() {
         <EmptyState title="Henüz pet yok" description="İlk pet profilini ekleyerek hatırlatmaları oluşturmaya başlayın." />
       ) : (
         <View style={styles.petList}>
-          {pets.map((pet) => (
-            <Card key={pet.id} style={styles.petCard}>
-              <Pressable onPress={() => router.push(`/pets/${pet.id}`)} style={({ pressed }) => [styles.petCardPress, pressed && { opacity: 0.95 }]}>
-                <View style={styles.petHeaderRow}>
-                  <View style={styles.photoWrap}>
-                    <View style={styles.photoGlow} />
-                    <View style={styles.photoBox}>
-                      {pet.photoUrl || pet.photoLocalUri ? (
-                        <Image source={{ uri: pet.photoUrl || pet.photoLocalUri }} style={styles.photo} contentFit="cover" />
-                      ) : (
-                        <Text style={styles.photoPlaceholder}>{pet.name?.slice(0, 1)?.toUpperCase() || '?'}</Text>
-                      )}
+          {pets.map((pet) => {
+            const isShared = pet._source === 'shared';
+            return (
+              <Card key={`${pet._source || 'legacy'}-${pet.id}`} style={styles.petCard}>
+                <Pressable onPress={() => handleOpenPet(pet)} style={({ pressed }) => [styles.petCardPress, pressed && { opacity: 0.95 }]}>
+                  <View style={styles.petHeaderRow}>
+                    <View style={styles.photoWrap}>
+                      <View style={styles.photoGlow} />
+                      <View style={styles.photoBox}>
+                        {pet.photoUrl || pet.photoLocalUri ? (
+                          <Image source={{ uri: pet.photoUrl || pet.photoLocalUri }} style={styles.photo} contentFit="cover" />
+                        ) : (
+                          <Text style={styles.photoPlaceholder}>{pet.name?.slice(0, 1)?.toUpperCase() || '?'}</Text>
+                        )}
+                      </View>
+                    </View>
+
+                    <View style={{ flex: 1, gap: 6 }}>
+                      <View style={styles.titleRow}>
+                        <Text style={styles.petName} numberOfLines={1}>
+                          {pet.name}
+                        </Text>
+                        <SpeciesPill species={pet.species} />
+                      </View>
+
+                      <View style={styles.badgeRow}>
+                        {isShared ? <SoftBadge icon="groups" label={`Ortak • ${getMemberRoleLabel(pet._role)}`} /> : null}
+                        <SoftBadge icon="wc" label={getPetGenderLabel(pet.gender)} />
+                        {pet.breed ? <SoftBadge icon="badge" label={pet.breed} /> : null}
+                        {pet.currentWeight ? <SoftBadge icon="monitor-weight" label={`${pet.currentWeight} kg`} /> : null}
+                      </View>
+
+                      <View style={styles.metaWrap}>
+                        {pet.birthDate ? (
+                          <View style={styles.metaItem}>
+                            <MaterialIcons name="cake" size={14} color="#7895AA" />
+                            <Text style={styles.metaText}>Doğum: {formatDateOnly(pet.birthDate)}</Text>
+                          </View>
+                        ) : (
+                          <Text style={styles.metaHint}>Temel profil hazır • Detaya girerek kayıt ekleyin</Text>
+                        )}
+                      </View>
+                    </View>
+
+                    <View style={styles.chevronWrap}>
+                      <MaterialIcons name="chevron-right" size={18} color="#7D99AD" />
                     </View>
                   </View>
+                </Pressable>
 
-                  <View style={{ flex: 1, gap: 6 }}>
-                    <View style={styles.titleRow}>
-                      <Text style={styles.petName} numberOfLines={1}>
-                        {pet.name}
-                      </Text>
-                      <SpeciesPill species={pet.species} />
-                    </View>
-
-                    <View style={styles.badgeRow}>
-                      <SoftBadge icon="wc" label={getPetGenderLabel(pet.gender)} />
-                      {pet.breed ? <SoftBadge icon="badge" label={pet.breed} /> : null}
-                      {pet.currentWeight ? <SoftBadge icon="monitor-weight" label={`${pet.currentWeight} kg`} /> : null}
-                    </View>
-
-                    <View style={styles.metaWrap}>
-                      {pet.birthDate ? (
-                        <View style={styles.metaItem}>
-                          <MaterialIcons name="cake" size={14} color="#7895AA" />
-                          <Text style={styles.metaText}>Doğum: {formatDateOnly(pet.birthDate)}</Text>
-                        </View>
-                      ) : (
-                        <Text style={styles.metaHint}>Temel profil hazır • Detaya girerek kayıt ekleyin</Text>
-                      )}
-                    </View>
-                  </View>
-
-                  <View style={styles.chevronWrap}>
-                    <MaterialIcons name="chevron-right" size={18} color="#7D99AD" />
-                  </View>
+                <View style={styles.actionRow}>
+                  <ActionPill icon="visibility" label="Detay" tone="sky" onPress={() => handleOpenPet(pet)} />
+                  {isShared ? (
+                    <ActionPill icon="group" label="Aile" tone="mint" onPress={() => router.push(`/pets/${pet.id}/family-access`)} />
+                  ) : (
+                    <>
+                      <ActionPill icon="edit" label="Düzenle" tone="mint" onPress={() => handleEditPet(pet)} />
+                      <ActionPill
+                        icon="delete-outline"
+                        label={deletingId === pet.id ? 'Siliniyor...' : 'Sil'}
+                        tone="danger"
+                        disabled={deletingId === pet.id}
+                        onPress={() => handleDelete(pet)}
+                      />
+                    </>
+                  )}
                 </View>
-              </Pressable>
-
-              <View style={styles.actionRow}>
-                <ActionPill icon="visibility" label="Detay" tone="sky" onPress={() => router.push(`/pets/${pet.id}`)} />
-                <ActionPill icon="edit" label="Düzenle" tone="mint" onPress={() => router.push(`/pets/${pet.id}/edit`)} />
-                <ActionPill
-                  icon="delete-outline"
-                  label={deletingId === pet.id ? 'Siliniyor...' : 'Sil'}
-                  tone="danger"
-                  disabled={deletingId === pet.id}
-                  onPress={() => handleDelete(pet)}
-                />
-              </View>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
         </View>
       )}
     </Screen>
@@ -238,6 +338,13 @@ function buildPetSummary(pets) {
     },
     { total: 0, cats: 0, dogs: 0, birds: 0 }
   );
+}
+
+function getMemberRoleLabel(role) {
+  if (role === 'owner') return 'Owner';
+  if (role === 'family') return 'Family';
+  if (role === 'viewer') return 'Viewer';
+  return 'Üye';
 }
 
 const summaryTones = {
@@ -448,7 +555,7 @@ const styles = StyleSheet.create({
     color: '#5E7D92',
     fontSize: 11,
     fontWeight: '700',
-    maxWidth: 140,
+    maxWidth: 180,
   },
   metaWrap: {
     gap: 4,
