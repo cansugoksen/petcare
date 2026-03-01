@@ -9,7 +9,6 @@ export default function RootLayout() {
     <AppProviders>
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="auth" options={{ presentation: 'modal' }} />
-        <Stack.Screen name="auth/welcome" options={{ presentation: 'modal' }} />
         <Stack.Screen
           name="settings-drawer"
           options={{ presentation: 'transparentModal', animation: 'slide_from_right' }}
@@ -24,6 +23,7 @@ export default function RootLayout() {
         <Stack.Screen name="pets/[petId]/digital-id" options={{ presentation: 'modal' }} />
         <Stack.Screen name="pets/[petId]/documents/index" options={{ presentation: 'modal' }} />
         <Stack.Screen name="pets/[petId]/documents/new" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="pets/[petId]/documents/[documentId]/edit" options={{ presentation: 'modal' }} />
         <Stack.Screen name="pets/[petId]/edit" options={{ presentation: 'modal' }} />
         <Stack.Screen name="pets/[petId]/reminders/new" options={{ presentation: 'modal' }} />
         <Stack.Screen name="pets/[petId]/reminders/[reminderId]/edit" options={{ presentation: 'modal' }} />

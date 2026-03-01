@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, router } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -121,12 +121,12 @@ function PetDetailScreen({ petId, initialTab }) {
   const weightSummary = useMemo(() => {
     if (!weights.length) return 'Hen\u00fcz kay\u0131t yok';
     const latest = weights[0];
-    return `Son kayÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±t: ${latest?.valueKg ?? latest?.weight ?? '-'} kg`;
+    return `Son kayÄ±t: ${latest?.valueKg ?? latest?.weight ?? '-'} kg`;
   }, [weights]);
 
   const logSummary = useMemo(() => {
     if (!logs.length) return 'Hen\u00fcz not yok';
-    return `${logs.length} saÃƒÆ’Ã¢â‚¬ÂÃƒâ€¦Ã‚Â¸lÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±k notu`;
+    return `${logs.length} saÄŸlÄ±k notu`;
   }, [logs]);
 
   const expenseSummary = useMemo(() => {
@@ -134,10 +134,11 @@ function PetDetailScreen({ petId, initialTab }) {
     const now = new Date();
     const month = getMonthTotal(expenses, now);
     const year = getYearTotal(expenses, now);
-    return `Bu ay ${formatTRY(month)} ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ Bu yÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±l ${formatTRY(year)}`;
+    return `Bu ay ${formatTRY(month)} â€¢ Bu yÄ±l ${formatTRY(year)}`;
   }, [expenses]);
 
   const filteredExpenses = useMemo(() => filterExpensesByMonth(expenses, expenseFocusDate), [expenses, expenseFocusDate]);
+  const expenseRows = useMemo(() => (filteredExpenses.length ? filteredExpenses : expenses).slice(0, 12), [filteredExpenses, expenses]);
   const filteredExpenseInsights = useMemo(() => buildExpenseInsights(filteredExpenses, expenseFocusDate), [filteredExpenses, expenseFocusDate]);
   const monthlyTrend = useMemo(() => buildMonthlyExpenseTrend(expenses, 6, expenseFocusDate), [expenses, expenseFocusDate]);
   const expenseYearOptions = useMemo(() => buildExpenseYearOptions(expenses, expenseFocusDate), [expenses, expenseFocusDate]);
@@ -146,6 +147,16 @@ function PetDetailScreen({ petId, initialTab }) {
     [timelineEvents, timelineFocusDate, timelineTypeFilter]
   );
   const timelineGroups = useMemo(() => groupTimelineByDay(filteredTimelineEvents), [filteredTimelineEvents]);
+  const timelineSections = useMemo(
+    () =>
+      timelineGroups.map((group) => ({
+        title: group.label,
+        key: group.key,
+        count: group.items.length,
+        data: group.items,
+      })),
+    [timelineGroups]
+  );
   const albumYearOptions = useMemo(() => buildAlbumYearOptions({ timelineEvents, expenses, weights, logs, pet }), [timelineEvents, expenses, weights, logs, pet]);
   const albumYearSummary = useMemo(
     () =>
@@ -167,7 +178,7 @@ function PetDetailScreen({ petId, initialTab }) {
 
 
   const confirmDeleteReminder = (reminder) => {
-    Alert.alert('HatÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±rlatmayÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â± sil', reminder.title || 'HatÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±rlatma', [
+    Alert.alert('HatÄ±rlatmayÄ± sil', reminder.title || 'HatÄ±rlatma', [
       { text: 'Vazge\u00e7', style: 'cancel' },
       {
         text: 'Sil',
@@ -175,7 +186,7 @@ function PetDetailScreen({ petId, initialTab }) {
         onPress: async () => {
           try {
             await deleteReminder(user.uid, petId, reminder.id);
-            Alert.alert('Silindi', 'HatÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±rlatma silindi.');
+            Alert.alert('Silindi', 'HatÄ±rlatma silindi.');
           } catch (err) {
             Alert.alert('Hata', err.message);
           }
@@ -185,7 +196,7 @@ function PetDetailScreen({ petId, initialTab }) {
   };
 
   const confirmDeleteWeight = (entry) => {
-    Alert.alert('Kilo kaydÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±nÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â± sil', `${entry.valueKg ?? entry.weight ?? '-'} kg`, [
+    Alert.alert('Kilo kaydÄ±nÄ± sil', `${entry.valueKg ?? entry.weight ?? '-'} kg`, [
       { text: 'Vazge\u00e7', style: 'cancel' },
       {
         text: 'Sil',
@@ -193,7 +204,7 @@ function PetDetailScreen({ petId, initialTab }) {
         onPress: async () => {
           try {
             await deleteWeightEntry(user.uid, petId, entry.id);
-            Alert.alert('Silindi', 'Kilo kaydÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â± silindi.');
+            Alert.alert('Silindi', 'Kilo kaydÄ± silindi.');
           } catch (err) {
             Alert.alert('Hata', err.message);
           }
@@ -203,7 +214,7 @@ function PetDetailScreen({ petId, initialTab }) {
   };
 
   const confirmDeleteLog = (entry) => {
-    Alert.alert('SaÃƒÆ’Ã¢â‚¬ÂÃƒâ€¦Ã‚Â¸lÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±k notunu sil', 'Bu kayÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±t silinecek.', [
+    Alert.alert('SaÄŸlÄ±k notunu sil', 'Bu kayÄ±t silinecek.', [
       { text: 'Vazge\u00e7', style: 'cancel' },
       {
         text: 'Sil',
@@ -211,7 +222,7 @@ function PetDetailScreen({ petId, initialTab }) {
         onPress: async () => {
           try {
             await deleteHealthLog(user.uid, petId, entry.id);
-            Alert.alert('Silindi', 'SaÃƒÆ’Ã¢â‚¬ÂÃƒâ€¦Ã‚Â¸lÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±k notu silindi.');
+            Alert.alert('Silindi', 'SaÄŸlÄ±k notu silindi.');
           } catch (err) {
             Alert.alert('Hata', err.message);
           }
@@ -221,7 +232,7 @@ function PetDetailScreen({ petId, initialTab }) {
   };
 
   const confirmDeleteExpense = (entry) => {
-    Alert.alert('Gider kaydÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±nÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â± sil', `${formatTRY(Number(entry.amount || 0))} ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ ${EXPENSE_CATEGORY_LABELS[entry.category] || 'Gider'}`, [
+    Alert.alert('Gider kaydÄ±nÄ± sil', `${formatTRY(Number(entry.amount || 0))} â€¢ ${EXPENSE_CATEGORY_LABELS[entry.category] || 'Gider'}`, [
       { text: 'Vazge\u00e7', style: 'cancel' },
       {
         text: 'Sil',
@@ -229,7 +240,7 @@ function PetDetailScreen({ petId, initialTab }) {
         onPress: async () => {
           try {
             await deleteExpense(user.uid, petId, entry.id);
-            Alert.alert('Silindi', 'Gider kaydÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â± silindi.');
+            Alert.alert('Silindi', 'Gider kaydÄ± silindi.');
           } catch (err) {
             Alert.alert('Hata', err.message);
           }
@@ -267,8 +278,8 @@ function PetDetailScreen({ petId, initialTab }) {
   return (
     <Screen
       title={pet?.name || 'Pet Detay\u0131'}
-      subtitle={isAlbumFocused ? 'Pet Yaşam Albümü' : pet ? `${getPetSpeciesLabel(pet.species)} sağlık takibi` : 'Yükleniyor...'}
-      right={isAlbumFocused ? null : <Button title={'Düzenle'} variant="secondary" onPress={() => router.push(`/pets/${petId}/edit`)} />}>
+      subtitle={isAlbumFocused ? 'Pet YaÅŸam AlbÃ¼mÃ¼' : pet ? `${getPetSpeciesLabel(pet.species)} saÄŸlÄ±k takibi` : 'YÃ¼kleniyor...'}
+      right={isAlbumFocused ? null : <Button title={'DÃ¼zenle'} variant="secondary" onPress={() => router.push(`/pets/${petId}/edit`)} />}>
       {error ? (
         <Card style={styles.errorCard}>
           <Text style={styles.errorText}>{error.message}</Text>
@@ -305,6 +316,13 @@ function PetDetailScreen({ petId, initialTab }) {
               </View>
             </View>
           </View>
+
+          <View style={styles.heroMetricsRow}>
+            <PetMetricPill icon="notifications-active" label="HatÄ±rlatma" value={`${reminders.length}`} tone="sky" />
+            <PetMetricPill icon="monitor-weight" label="Kilo" value={`${weights.length}`} tone="mint" />
+            <PetMetricPill icon="fact-check" label="Not" value={`${logs.length}`} tone="violet" />
+            <PetMetricPill icon="payments" label="Gider" value={`${expenses.length}`} tone="amber" />
+          </View>
         </Card>
       ) : null}
 
@@ -334,9 +352,9 @@ function PetDetailScreen({ petId, initialTab }) {
 
       {activeTab === 'album' ? (
         <SectionBlock
-          title="Pet Yaşam Albümü"
-          subtitle={`${albumYear} yılı anı özeti`}
-          addLabel="AI Özet"
+          title="Pet YaÅŸam AlbÃ¼mÃ¼"
+          subtitle={`${albumYear} yÄ±lÄ± anÄ± Ã¶zeti`}
+          addLabel="AI Ã–zet"
           onAdd={() =>
             router.push({
               pathname: '/ai',
@@ -345,7 +363,7 @@ function PetDetailScreen({ petId, initialTab }) {
           }>
           <Card style={styles.expenseFilterCard}>
             <View style={styles.expenseFilterTop}>
-              <Text style={styles.itemTitle}>Yıl Seçimi</Text>
+              <Text style={styles.itemTitle}>YÄ±l SeÃ§imi</Text>
               <Chip label={`${albumYearSummary.eventCount} olay`} />
             </View>
             <View style={styles.yearFilterRow}>
@@ -368,7 +386,7 @@ function PetDetailScreen({ petId, initialTab }) {
             <View style={styles.heroGlowB} />
             <View style={styles.rowBetween}>
               <View style={{ flex: 1, gap: 4 }}>
-                <Text style={styles.itemTitle}>{`${pet?.name || 'Pet'} için ${albumYear} özeti`}</Text>
+                <Text style={styles.itemTitle}>{`${pet?.name || 'Pet'} iÃ§in ${albumYear} Ã¶zeti`}</Text>
                 <Text style={styles.subText}>
                   {albumYearSummary.ageLine}
                 </Text>
@@ -380,7 +398,7 @@ function PetDetailScreen({ petId, initialTab }) {
               <ExpenseStatCard label="Kilo" value={albumYearSummary.weightLine} tone="mint" />
             </View>
             <View style={styles.expenseOverviewRow}>
-              <ExpenseStatCard label="Sağlık Notu" value={`${albumYearSummary.logCount}`} tone="violet" />
+              <ExpenseStatCard label="SaÄŸlÄ±k Notu" value={`${albumYearSummary.logCount}`} tone="violet" />
               <ExpenseStatCard label="Gider" value={formatTRY(albumYearSummary.expenseTotal)} tone="amber" />
             </View>
           </Card>
@@ -388,7 +406,7 @@ function PetDetailScreen({ petId, initialTab }) {
           {firstYearAlbumSummary ? (
             <Card style={styles.contentCard}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.itemTitle}>1 Yaş Özeti</Text>
+                <Text style={styles.itemTitle}>1 YaÅŸ Ã–zeti</Text>
                 <Chip label={firstYearAlbumSummary.label} tone="warning" />
               </View>
               <Text style={styles.subText}>{firstYearAlbumSummary.summaryLine}</Text>
@@ -406,8 +424,8 @@ function PetDetailScreen({ petId, initialTab }) {
 
           <Card style={styles.contentCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.itemTitle}>Anı Akışı (Öne Çıkanlar)</Text>
-              <Chip label={`${albumYearSummary.highlights.length} kayıt`} />
+              <Text style={styles.itemTitle}>AnÄ± AkÄ±ÅŸÄ± (Ã–ne Ã‡Ä±kanlar)</Text>
+              <Chip label={`${albumYearSummary.highlights.length} kayÄ±t`} />
             </View>
             {albumYearSummary.highlights.length ? (
               <View style={{ gap: 8 }}>
@@ -424,25 +442,25 @@ function PetDetailScreen({ petId, initialTab }) {
                 ))}
               </View>
             ) : (
-              <EmptyState title="Henüz albüm verisi yok" description="Bu yıl için kayıt eklendikçe anı özeti burada görünür." />
+              <EmptyState title="HenÃ¼z albÃ¼m verisi yok" description="Bu yÄ±l iÃ§in kayÄ±t eklendikÃ§e anÄ± Ã¶zeti burada gÃ¶rÃ¼nÃ¼r." />
             )}
           </Card>
 
           <Card style={styles.contentCard}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.itemTitle}>Fotoğraf Albümü</Text>
-              <Chip label={pet?.photoUrl || pet?.photoLocalUri ? '1 kapak fotoğrafı' : 'Fotoğraf yok'} />
+              <Text style={styles.itemTitle}>FotoÄŸraf AlbÃ¼mÃ¼</Text>
+              <Chip label={pet?.photoUrl || pet?.photoLocalUri ? '1 kapak fotoÄŸrafÄ±' : 'FotoÄŸraf yok'} />
             </View>
             {pet?.photoUrl || pet?.photoLocalUri ? (
               <View style={styles.albumPhotoCard}>
                 <Image source={{ uri: pet.photoUrl || pet.photoLocalUri }} style={styles.albumPhoto} contentFit="cover" />
                 <View style={styles.albumPhotoOverlay}>
                   <Text style={styles.albumPhotoTitle}>{pet.name}</Text>
-                  <Text style={styles.albumPhotoSub}>{albumYear} albüm kapağı</Text>
+                  <Text style={styles.albumPhotoSub}>{albumYear} albÃ¼m kapaÄŸÄ±</Text>
                 </View>
               </View>
             ) : (
-              <EmptyState title="Fotoğraf bulunamadı" description="Pet profil fotoğrafı eklendiğinde albüm kapağı burada görünür." />
+              <EmptyState title="FotoÄŸraf bulunamadÄ±" description="Pet profil fotoÄŸrafÄ± eklendiÄŸinde albÃ¼m kapaÄŸÄ± burada gÃ¶rÃ¼nÃ¼r." />
             )}
           </Card>
         </SectionBlock>
@@ -494,19 +512,22 @@ function PetDetailScreen({ petId, initialTab }) {
             </View>
           </Card>
 
-          {timelineGroups.length === 0 ? (
-            <EmptyState title={'Timeline bo\u015f'} description={'Se\u00e7ili ay ve filtre i\u00e7in sa\u011fl\u0131k olay\u0131 bulunmuyor.'} />
+          {timelineSections.length === 0 ? (
+            <EmptyState title={'Timeline boş'} description={'Seçili ay ve filtre için sağlık olayı bulunmuyor.'} />
           ) : (
-            timelineGroups.map((group) => (
-              <View key={group.key} style={styles.timelineDayBlock}>
+            <SectionList
+              sections={timelineSections}
+              keyExtractor={(item) => item.id}
+              renderSectionHeader={({ section }) => (
                 <View style={styles.timelineDayHeader}>
-                  <Text style={styles.timelineDayTitle}>{group.label}</Text>
-                  <Chip label={`${group.items.length} olay`} />
+                  <Text style={styles.timelineDayTitle}>{section.title}</Text>
+                  <Chip label={`${section.count} olay`} />
                 </View>
-                {group.items.map((event) => {
-                  const ui = getTimelineTypeUi(event.type);
-                  return (
-                    <Pressable key={event.id} onPress={() => handleTimelineEventPress(event)} style={({ pressed }) => [pressed && { opacity: 0.92 }]}>
+              )}
+              renderItem={({ item: event }) => {
+                const ui = getTimelineTypeUi(event.type);
+                return (
+                  <Pressable onPress={() => handleTimelineEventPress(event)} style={({ pressed }) => [pressed && { opacity: 0.92 }]}>
                     <Card style={styles.timelineCard}>
                       <View style={styles.rowBetween}>
                         <View style={styles.timelineLeft}>
@@ -515,7 +536,7 @@ function PetDetailScreen({ petId, initialTab }) {
                           </View>
                           <View style={{ flex: 1, gap: 3 }}>
                             <Text style={styles.itemTitle}>{event.title || 'Olay'}</Text>
-                            <Text style={styles.subText}>{event.summary || 'KayÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±t detayÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±'}</Text>
+                            <Text style={styles.subText}>{event.summary || 'Kayıt detayı'}</Text>
                           </View>
                         </View>
                         <View style={styles.timelineRight}>
@@ -534,43 +555,59 @@ function PetDetailScreen({ petId, initialTab }) {
                         </View>
                       ) : null}
                     </Card>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            ))
+                  </Pressable>
+                );
+              }}
+              scrollEnabled={false}
+              stickySectionHeadersEnabled={false}
+              contentContainerStyle={styles.timelineListContent}
+              removeClippedSubviews
+              initialNumToRender={12}
+              maxToRenderPerBatch={16}
+              windowSize={7}
+            />
           )}
         </SectionBlock>
       ) : null}
 
       {activeTab === 'reminders' ? (
-        <SectionBlock title="HatÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±rlatmalar" subtitle={reminderSummary} addLabel="HatÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±rlatma" onAdd={() => router.push(`/pets/${petId}/reminders/new`)}>
+        <SectionBlock title="HatÄ±rlatmalar" subtitle={reminderSummary} addLabel="HatÄ±rlatma" onAdd={() => router.push(`/pets/${petId}/reminders/new`)}>
           {reminders.length === 0 ? (
             <EmptyState title={'Hat\u0131rlatma yok'} description={'A\u015f\u0131, ila\u00e7 veya veteriner randevusu ekleyin.'} />
           ) : (
-            reminders.map((item) => (
-              <Card key={item.id} style={styles.contentCard}>
-                <View style={styles.rowBetween}>
-                  <View style={{ flex: 1, gap: 4 }}>
-                    <Text style={styles.itemTitle}>{item.title || 'HatÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±rlatma'}</Text>
-                    <Text style={styles.subText}>{formatDateTime(item.dueDate)}</Text>
-                    <Text style={styles.subText}>
-                      Tekrar: {repeatTypeLabels[item.repeatType] || 'Yok'}
-                      {item.repeatType === 'customDays' && item.customDaysInterval ? ` (${item.customDaysInterval} g\u00fcnde bir)` : ''}
-                    </Text>
+            <FlatList
+              data={reminders}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <Card style={styles.contentCard}>
+                  <View style={styles.rowBetween}>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <Text style={styles.itemTitle}>{item.title || 'HatÄ±rlatma'}</Text>
+                      <Text style={styles.subText}>{formatDateTime(item.dueDate)}</Text>
+                      <Text style={styles.subText}>
+                        Tekrar: {repeatTypeLabels[item.repeatType] || 'Yok'}
+                        {item.repeatType === 'customDays' && item.customDaysInterval ? ` (${item.customDaysInterval} g\u00fcnde bir)` : ''}
+                      </Text>
+                    </View>
+                    <Chip label={reminderTypeLabels[item.type] || item.type || 'HatÄ±rlatma'} tone="primary" />
                   </View>
-                  <Chip label={reminderTypeLabels[item.type] || item.type || 'HatÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±rlatma'} tone="primary" />
-                </View>
 
-                <View style={styles.footerRow}>
-                  <StateDot active={!!item.active} />
-                  <View style={styles.inlineActions}>
-                    <IconButton icon="edit" tone="sky" onPress={() => router.push(`/pets/${petId}/reminders/${item.id}/edit`)} />
-                    <IconButton icon="delete" tone="danger" onPress={() => confirmDeleteReminder(item)} />
+                  <View style={styles.footerRow}>
+                    <StateDot active={!!item.active} />
+                    <View style={styles.inlineActions}>
+                      <IconButton icon="edit" tone="sky" onPress={() => router.push(`/pets/${petId}/reminders/${item.id}/edit`)} />
+                      <IconButton icon="delete" tone="danger" onPress={() => confirmDeleteReminder(item)} />
+                    </View>
                   </View>
-                </View>
-              </Card>
-            ))
+                </Card>
+              )}
+              scrollEnabled={false}
+              contentContainerStyle={styles.listContentSpaced}
+              removeClippedSubviews
+              initialNumToRender={8}
+              maxToRenderPerBatch={12}
+              windowSize={5}
+            />
           )}
         </SectionBlock>
       ) : null}
@@ -580,45 +617,65 @@ function PetDetailScreen({ petId, initialTab }) {
           {weights.length === 0 ? (
             <EmptyState title={'Kilo kayd\u0131 yok'} description={'D\u00fczenli kilo takibi i\u00e7in kay\u0131t ekleyin.'} />
           ) : (
-            weights.map((item) => (
-              <Card key={item.id} style={styles.contentCard}>
-                <View style={styles.rowBetween}>
-                  <View>
-                    <Text style={styles.itemTitle}>{item.valueKg ?? item.weight} kg</Text>
-                    <Text style={styles.subText}>{formatDateTime(item.measuredAt)}</Text>
+            <FlatList
+              data={weights}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <Card style={styles.contentCard}>
+                  <View style={styles.rowBetween}>
+                    <View>
+                      <Text style={styles.itemTitle}>{item.valueKg ?? item.weight} kg</Text>
+                      <Text style={styles.subText}>{formatDateTime(item.measuredAt)}</Text>
+                    </View>
+                    <IconButton icon="delete" tone="danger" onPress={() => confirmDeleteWeight(item)} />
                   </View>
-                  <IconButton icon="delete" tone="danger" onPress={() => confirmDeleteWeight(item)} />
-                </View>
-                {item.note ? <Text style={styles.noteText}>{item.note}</Text> : null}
-              </Card>
-            ))
+                  {item.note ? <Text style={styles.noteText}>{item.note}</Text> : null}
+                </Card>
+              )}
+              scrollEnabled={false}
+              contentContainerStyle={styles.listContentSpaced}
+              removeClippedSubviews
+              initialNumToRender={8}
+              maxToRenderPerBatch={12}
+              windowSize={5}
+            />
           )}
         </SectionBlock>
       ) : null}
 
       {activeTab === 'logs' ? (
-        <SectionBlock title="SaÃƒÆ’Ã¢â‚¬ÂÃƒâ€¦Ã‚Â¸lÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±k NotlarÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±" subtitle={logSummary} addLabel="Not" onAdd={() => router.push(`/pets/${petId}/logs/new`)}>
+        <SectionBlock title="SaÄŸlÄ±k NotlarÄ±" subtitle={logSummary} addLabel="Not" onAdd={() => router.push(`/pets/${petId}/logs/new`)}>
           {logs.length === 0 ? (
             <EmptyState title={'Sa\u011fl\u0131k notu yok'} description={'Belirti ve davran\u0131\u015f g\u00f6zlemlerini kaydedin.'} />
           ) : (
-            logs.map((item) => (
-              <Card key={item.id} style={styles.contentCard}>
-                <View style={styles.rowBetween}>
-                  <Text style={styles.itemTitle}>{formatDateTime(item.loggedAt)}</Text>
-                  <IconButton icon="delete" tone="danger" onPress={() => confirmDeleteLog(item)} />
-                </View>
-
-                {(item.tags || []).length ? (
-                  <View style={styles.tagsWrap}>
-                    {(item.tags || []).map((tag) => (
-                      <Chip key={tag} label={tag} />
-                    ))}
+            <FlatList
+              data={logs}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <Card style={styles.contentCard}>
+                  <View style={styles.rowBetween}>
+                    <Text style={styles.itemTitle}>{formatDateTime(item.loggedAt)}</Text>
+                    <IconButton icon="delete" tone="danger" onPress={() => confirmDeleteLog(item)} />
                   </View>
-                ) : null}
 
-                <Text style={styles.noteText}>{item.note || 'Not yok'}</Text>
-              </Card>
-            ))
+                  {(item.tags || []).length ? (
+                    <View style={styles.tagsWrap}>
+                      {(item.tags || []).map((tag) => (
+                        <Chip key={tag} label={tag} />
+                      ))}
+                    </View>
+                  ) : null}
+
+                  <Text style={styles.noteText}>{item.note || 'Not yok'}</Text>
+                </Card>
+              )}
+              scrollEnabled={false}
+              contentContainerStyle={styles.listContentSpaced}
+              removeClippedSubviews
+              initialNumToRender={8}
+              maxToRenderPerBatch={12}
+              windowSize={5}
+            />
           )}
         </SectionBlock>
       ) : null}
@@ -632,7 +689,7 @@ function PetDetailScreen({ petId, initialTab }) {
               <Card style={styles.expenseFilterCard}>
                 <View style={styles.expenseFilterTop}>
                   <Text style={styles.itemTitle}>{'Analiz D\u00f6nemi'}</Text>
-                  <Chip label={`${filteredExpenses.length} kayÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±t`} />
+                  <Chip label={`${filteredExpenses.length} kayÄ±t`} />
                 </View>
                 <View style={styles.monthNavRow}>
                   <Pressable onPress={() => setExpenseFocusDate((prev) => shiftMonth(prev, -1))} style={({ pressed }) => [styles.monthNavBtn, pressed && { opacity: 0.9 }]}>
@@ -673,7 +730,7 @@ function PetDetailScreen({ petId, initialTab }) {
                   <ExpenseStatCard label={'Se\u00e7ili Y\u0131l'} value={formatTRY(filteredExpenseInsights.yearTotal)} tone="sky" />
                 </View>
                 <View style={styles.expenseOverviewRow}>
-                  <ExpenseStatCard label="KayÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±t" value={`${filteredExpenses.length}`} tone="mint" />
+                  <ExpenseStatCard label="KayÄ±t" value={`${filteredExpenses.length}`} tone="mint" />
                   <ExpenseStatCard label="Ortalama" value={formatTRY(filteredExpenseInsights.avgAmount)} tone="amber" />
                 </View>
               </Card>
@@ -713,7 +770,7 @@ function PetDetailScreen({ petId, initialTab }) {
                         <View style={styles.categoryRow}>
                           <View style={styles.categoryLeft}>
                             <View style={[styles.categoryDot, { backgroundColor: getExpenseCategoryColor(row.category) }]} />
-                            <Text style={styles.subText}>{EXPENSE_CATEGORY_LABELS[row.category] || 'DiÃƒÆ’Ã¢â‚¬ÂÃƒâ€¦Ã‚Â¸er'}</Text>
+                            <Text style={styles.subText}>{EXPENSE_CATEGORY_LABELS[row.category] || 'DiÄŸer'}</Text>
                           </View>
                           <Text style={styles.categoryValue}>{formatTRY(row.total)}</Text>
                         </View>
@@ -734,27 +791,37 @@ function PetDetailScreen({ petId, initialTab }) {
                 </Card>
               ) : null}
 
-              {(filteredExpenses.length ? filteredExpenses : expenses).slice(0, 12).map((item) => (
-                <Card key={item.id} style={styles.contentCard}>
-                  <View style={styles.rowBetween}>
-                    <View style={{ flex: 1, gap: 4 }}>
-                      <Text style={styles.itemTitle}>{item.title || EXPENSE_CATEGORY_LABELS[item.category] || 'Gider'}</Text>
-                      <Text style={styles.subText}>
-                        {(EXPENSE_CATEGORY_LABELS[item.category] || 'Gider')} ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â¢ {formatDateTime(item.expenseDate)}
-                      </Text>
-                      {item.clinicName ? <Text style={styles.subText}>Kurum: {item.clinicName}</Text> : null}
-                    </View>
-                    <View style={styles.expenseRight}>
-                      <Text style={styles.expenseAmount}>{formatTRY(Number(item.amount || 0))}</Text>
-                      <View style={styles.inlineActions}>
-                        <IconButton icon="edit" tone="sky" onPress={() => router.push(`/pets/${petId}/expenses/${item.id}/edit`)} />
-                        <IconButton icon="delete" tone="danger" onPress={() => confirmDeleteExpense(item)} />
+              <FlatList
+                data={expenseRows}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <Card style={styles.contentCard}>
+                    <View style={styles.rowBetween}>
+                      <View style={{ flex: 1, gap: 4 }}>
+                        <Text style={styles.itemTitle}>{item.title || EXPENSE_CATEGORY_LABELS[item.category] || 'Gider'}</Text>
+                        <Text style={styles.subText}>
+                          {(EXPENSE_CATEGORY_LABELS[item.category] || 'Gider')} • {formatDateTime(item.expenseDate)}
+                        </Text>
+                        {item.clinicName ? <Text style={styles.subText}>Kurum: {item.clinicName}</Text> : null}
+                      </View>
+                      <View style={styles.expenseRight}>
+                        <Text style={styles.expenseAmount}>{formatTRY(Number(item.amount || 0))}</Text>
+                        <View style={styles.inlineActions}>
+                          <IconButton icon="edit" tone="sky" onPress={() => router.push(`/pets/${petId}/expenses/${item.id}/edit`)} />
+                          <IconButton icon="delete" tone="danger" onPress={() => confirmDeleteExpense(item)} />
+                        </View>
                       </View>
                     </View>
-                  </View>
-                  {item.note ? <Text style={styles.noteText}>{item.note}</Text> : null}
-                </Card>
-              ))}
+                    {item.note ? <Text style={styles.noteText}>{item.note}</Text> : null}
+                  </Card>
+                )}
+                scrollEnabled={false}
+                removeClippedSubviews
+                initialNumToRender={6}
+                maxToRenderPerBatch={8}
+                windowSize={5}
+                contentContainerStyle={styles.expenseListContent}
+              />
 
               {!filteredExpenses.length ? (
                 <Card style={styles.contentCard}>
@@ -815,24 +882,24 @@ function buildAlbumYearSummary({ year, pet, timelineEvents, expenses, weights, l
   const lastValue = Number(lastWeight?.valueKg ?? lastWeight?.weight ?? NaN);
   const weightLine =
     Number.isFinite(firstValue) && Number.isFinite(lastValue)
-      ? `${firstValue.toFixed(1)} → ${lastValue.toFixed(1)} kg`
+      ? `${firstValue.toFixed(1)} â†’ ${lastValue.toFixed(1)} kg`
       : weightsInYear.length
-        ? `${weightsInYear.length} ölçüm`
-        : 'Kayıt yok';
+        ? `${weightsInYear.length} Ã¶lÃ§Ã¼m`
+        : 'KayÄ±t yok';
 
   const expenseTotal = expensesInYear.reduce((sum, row) => sum + Number(row.amount || 0), 0);
 
   const birthDate = toDate(pet?.birthDate);
   const ageLine = birthDate
-    ? `${year} içinde yaklaşık ${Math.max(0, year - birthDate.getFullYear())} yaş dönemine ait kayıtlar`
-    : `${year} yılı sağlık ve bakım kayıt özeti`;
+    ? `${year} iÃ§inde yaklaÅŸÄ±k ${Math.max(0, year - birthDate.getFullYear())} yaÅŸ dÃ¶nemine ait kayÄ±tlar`
+    : `${year} yÄ±lÄ± saÄŸlÄ±k ve bakÄ±m kayÄ±t Ã¶zeti`;
 
   const highlights = [
     {
       key: 'events',
       icon: 'event-note',
-      title: `${eventsInYear.length} sağlık olayı`,
-      subtitle: `${year} yılı timeline kaydı`,
+      title: `${eventsInYear.length} saÄŸlÄ±k olayÄ±`,
+      subtitle: `${year} yÄ±lÄ± timeline kaydÄ±`,
       bg: '#EEF6FF',
       border: '#D8EAFB',
       color: '#2D6C9E',
@@ -840,8 +907,8 @@ function buildAlbumYearSummary({ year, pet, timelineEvents, expenses, weights, l
     {
       key: 'logs',
       icon: 'fact-check',
-      title: `${logsInYear.length} sağlık notu`,
-      subtitle: logsInYear.length ? 'Belirti ve gözlem kayıtları mevcut' : 'Bu yıl not kaydı yok',
+      title: `${logsInYear.length} saÄŸlÄ±k notu`,
+      subtitle: logsInYear.length ? 'Belirti ve gÃ¶zlem kayÄ±tlarÄ± mevcut' : 'Bu yÄ±l not kaydÄ± yok',
       bg: '#F7F3FF',
       border: '#E4DAFB',
       color: '#6A52B0',
@@ -850,7 +917,7 @@ function buildAlbumYearSummary({ year, pet, timelineEvents, expenses, weights, l
       key: 'expenses',
       icon: 'payments',
       title: `${formatTRY(expenseTotal)} gider`,
-      subtitle: `${year} yılı toplam sağlık/bakım harcaması`,
+      subtitle: `${year} yÄ±lÄ± toplam saÄŸlÄ±k/bakÄ±m harcamasÄ±`,
       bg: '#FFF8EE',
       border: '#F2E0BF',
       color: '#A16E17',
@@ -863,7 +930,7 @@ function buildAlbumYearSummary({ year, pet, timelineEvents, expenses, weights, l
     expenseTotal,
     weightLine,
     ageLine,
-    coverLabel: pet?.photoUrl || pet?.photoLocalUri ? 'Kapak hazır' : 'Kapak bekleniyor',
+    coverLabel: pet?.photoUrl || pet?.photoLocalUri ? 'Kapak hazÄ±r' : 'Kapak bekleniyor',
     highlights,
   };
 }
@@ -886,24 +953,24 @@ function buildFirstYearAlbumSummary({ pet, timelineEvents, expenses, weights, lo
   const firstValue = Number(firstWeight?.valueKg ?? firstWeight?.weight ?? NaN);
   const lastValue = Number(lastWeight?.valueKg ?? lastWeight?.weight ?? NaN);
   const weightLine = Number.isFinite(firstValue) && Number.isFinite(lastValue)
-    ? `${firstValue.toFixed(1)} → ${lastValue.toFixed(1)} kg`
-    : (weightsInRange.length ? `${weightsInRange.length} ölçüm` : 'Kayıt yok');
+    ? `${firstValue.toFixed(1)} â†’ ${lastValue.toFixed(1)} kg`
+    : (weightsInRange.length ? `${weightsInRange.length} Ã¶lÃ§Ã¼m` : 'KayÄ±t yok');
 
   const expenseTotal = expensesInRange.reduce((sum, row) => sum + Number(row.amount || 0), 0);
   const now = new Date();
   const completed = now >= firstBirthday;
 
   return {
-    label: completed ? 'Tamamlandı' : 'Yaklaşıyor',
+    label: completed ? 'TamamlandÄ±' : 'YaklaÅŸÄ±yor',
     eventCount: eventsInRange.length,
     logCount: logsInRange.length,
     expenseTotal,
     weightLine,
     summaryLine: completed
-      ? `İlk yaş dönemi özeti (${formatDateOnly(birthDate)} - ${formatDateOnly(firstBirthday)})`
-      : `İlk yaş özeti ${formatDateOnly(firstBirthday)} tarihinde tamamlanacak`
+      ? `Ä°lk yaÅŸ dÃ¶nemi Ã¶zeti (${formatDateOnly(birthDate)} - ${formatDateOnly(firstBirthday)})`
+      : `Ä°lk yaÅŸ Ã¶zeti ${formatDateOnly(firstBirthday)} tarihinde tamamlanacak`
     ,
-    note: completed ? 'Büyüme dönemini özetleyen ilk taslak kart.' : '',
+    note: completed ? 'BÃ¼yÃ¼me dÃ¶nemini Ã¶zetleyen ilk taslak kart.' : '',
   };
 }
 
@@ -974,6 +1041,30 @@ function ExpenseStatCard({ label, value, tone = 'sky' }) {
       <Text style={[styles.expenseStatValue, { color: t.value }]} numberOfLines={1}>
         {value}
       </Text>
+    </View>
+  );
+}
+
+function PetMetricPill({ icon, label, value, tone = 'sky' }) {
+  const tones = {
+    sky: { bg: '#F3F9FF', border: '#DCEAF8', icon: '#3F7FB0', label: '#6283A1', value: '#24597F' },
+    mint: { bg: '#F1FBF6', border: '#D7EEDF', icon: '#2C8E6B', label: '#5E8876', value: '#246A50' },
+    violet: { bg: '#F7F4FF', border: '#E5DCF8', icon: '#6A52B0', label: '#7B6BA7', value: '#4C3F7D' },
+    amber: { bg: '#FFF8EE', border: '#F2E0BC', icon: '#A16E17', label: '#957448', value: '#76541E' },
+  };
+  const t = tones[tone] || tones.sky;
+
+  return (
+    <View style={[styles.petMetricPill, { backgroundColor: t.bg, borderColor: t.border }]}>
+      <MaterialIcons name={icon} size={13} color={t.icon} />
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.petMetricLabel, { color: t.label }]} numberOfLines={1}>
+          {label}
+        </Text>
+        <Text style={[styles.petMetricValue, { color: t.value }]} numberOfLines={1}>
+          {value}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -1162,7 +1253,7 @@ function isSameDay(a, b) {
 
 function getTimelineTypeUi(type) {
   if (type === 'reminder') {
-    return { label: 'HatÃƒÆ’Ã¢â‚¬ÂÃƒâ€šÃ‚Â±rlatma', icon: 'notifications-active', bg: '#EEF6FF', border: '#D8EAFB', color: '#2D6C9E' };
+    return { label: 'HatÄ±rlatma', icon: 'notifications-active', bg: '#EEF6FF', border: '#D8EAFB', color: '#2D6C9E' };
   }
   if (type === 'weight') {
     return { label: 'Kilo', icon: 'monitor-weight', bg: '#EEF9F4', border: '#D3ECDf', color: '#2A8A68' };
@@ -1199,7 +1290,12 @@ const styles = StyleSheet.create({
     borderColor: '#D7E8F6',
     overflow: 'hidden',
     position: 'relative',
-    gap: 12,
+    gap: 14,
+    shadowColor: '#123149',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2,
   },
   heroGlowA: {
     position: 'absolute',
@@ -1275,6 +1371,29 @@ const styles = StyleSheet.create({
     gap: 8,
     flexWrap: 'wrap',
   },
+  heroMetricsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  petMetricPill: {
+    width: '48.8%',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  petMetricLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  petMetricValue: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
   infoPill: {
     borderWidth: 1,
     borderRadius: 999,
@@ -1289,9 +1408,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   segmentCard: {
-    gap: 10,
-    backgroundColor: '#F4FAFF',
-    borderColor: '#D9E9F7',
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DCE8F2',
+    shadowColor: '#132A39',
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 1,
   },
   segmentHeader: {
     gap: 2,
@@ -1312,11 +1436,11 @@ const styles = StyleSheet.create({
   },
   segmentButton: {
     flexGrow: 1,
-    minWidth: 96,
+    minWidth: 104,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#D6E7F6',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F9FBFE',
     paddingHorizontal: 10,
     paddingVertical: 10,
     alignItems: 'center',
@@ -1325,7 +1449,7 @@ const styles = StyleSheet.create({
   },
   segmentButtonActive: {
     borderColor: '#94C5EA',
-    backgroundColor: '#E6F3FF',
+    backgroundColor: '#E9F5FF',
   },
   segmentButtonText: {
     color: '#557B97',
@@ -1341,19 +1465,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 10,
     marginTop: 4,
+    paddingHorizontal: 2,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#2A567B',
+    color: '#214F73',
   },
   sectionSubtitle: {
     fontSize: 12,
-    color: '#5D84A2',
+    color: '#678AA6',
   },
   contentCard: {
     gap: 10,
     borderColor: '#DFEAF2',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#132A39',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   rowBetween: {
     flexDirection: 'row',
@@ -1445,6 +1576,15 @@ const styles = StyleSheet.create({
   timelineDayBlock: {
     gap: 8,
   },
+  timelineListContent: {
+    gap: 8,
+  },
+  listContentSpaced: {
+    gap: 8,
+  },
+  expenseListContent: {
+    gap: 0,
+  },
   timelineDayHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1468,10 +1608,10 @@ const styles = StyleSheet.create({
     gap: 10,
     borderWidth: 1,
     borderColor: '#E3ECF4',
-    backgroundColor: '#FBFDFF',
-    borderRadius: 12,
+    backgroundColor: '#FCFDFF',
+    borderRadius: 13,
     paddingHorizontal: 10,
-    paddingVertical: 9,
+    paddingVertical: 10,
   },
   timelineLeft: {
     flexDirection: 'row',

@@ -15,7 +15,7 @@ import {
   PetCareTheme,
 } from '@/constants/petcare-theme';
 import { formatDateOnly, parseInputDateTime, toDate } from '@/lib/date-utils';
-import { pickImageFromCamera, pickImageFromLibrary, savePetPhotoLocal } from '@/lib/media';
+import { pickImageFromCamera, pickImageFromLibrary, uploadPetPhoto } from '@/lib/media';
 import { createPet, updatePet } from '@/lib/petcare-db';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -402,16 +402,23 @@ export function PetCreateWizardScreen() {
       const petId = await createPet(user.uid, payload);
 
       let photoUploadWarning = '';
+      let uploadedPhotoUrl = '';
       if (localPhotoUri) {
         try {
-          const uploaded = await savePetPhotoLocal({
+          const uploaded = await uploadPetPhoto({
             uid: user.uid,
             petId,
             uri: localPhotoUri,
           });
-          await updatePet(user.uid, petId, uploaded);
+          uploadedPhotoUrl = uploaded.photoUrl || '';
+          await updatePet(user.uid, petId, {
+            photoUrl: uploaded.photoUrl || null,
+            photoPath: uploaded.photoPath || null,
+            photoLocalUri: null,
+            photoLocalPath: null,
+          });
         } catch (photoErr) {
-          photoUploadWarning = photoErr.message || 'Fotoğraf cihaz içine kaydedilemedi.';
+          photoUploadWarning = photoErr.message || 'Fotoğraf cloud depoya yüklenemedi.';
         }
       }
 
@@ -424,7 +431,7 @@ export function PetCreateWizardScreen() {
         weightText: payload.currentWeight ? `${payload.currentWeight} kg` : '',
         birthDateText: payload.birthDate ? formatDateOnly(payload.birthDate) : '',
         adoptionDateText: payload.adoptionDate ? formatDateOnly(payload.adoptionDate) : '',
-        photoUrl: localPhotoUri || '',
+        photoUrl: uploadedPhotoUrl || localPhotoUri || '',
         warning: photoUploadWarning || '',
       });
     } catch (err) {

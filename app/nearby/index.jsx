@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { Alert, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 import { AuthGate } from '@/components/pc/auth-guard';
@@ -361,9 +361,18 @@ function NearbyScreen() {
         />
       ) : (
         <View style={styles.listWrap}>
-          {results.map((item) => (
-            <NearbyPlaceCard key={item.id} item={item} />
-          ))}
+          <FlatList
+            data={results}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => <NearbyPlaceCard item={item} />}
+            ItemSeparatorComponent={() => <View style={styles.nearbyListGap} />}
+            scrollEnabled={false}
+            removeClippedSubviews
+            initialNumToRender={8}
+            maxToRenderPerBatch={12}
+            windowSize={5}
+            contentContainerStyle={styles.nearbyListContent}
+          />
         </View>
       )}
 
@@ -626,6 +635,12 @@ const styles = StyleSheet.create({
   },
   listWrap: {
     gap: 10,
+  },
+  nearbyListContent: {
+    gap: 0,
+  },
+  nearbyListGap: {
+    height: 10,
   },
   itemCard: {
     gap: 10,

@@ -1,26 +1,39 @@
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PetCareTheme } from '@/constants/petcare-theme';
 
 export function Screen({ title, subtitle, scroll = true, right, children, contentStyle }) {
   const Wrapper = scroll ? ScrollView : View;
+  const wrapperProps = scroll
+    ? {
+        keyboardShouldPersistTaps: 'handled',
+        keyboardDismissMode: Platform.OS === 'ios' ? 'interactive' : 'on-drag',
+        automaticallyAdjustKeyboardInsets: true,
+        contentInsetAdjustmentBehavior: 'automatic',
+      }
+    : {};
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <Wrapper
-        style={styles.wrapper}
-        contentContainerStyle={[styles.content, contentStyle]}
-        keyboardShouldPersistTaps="handled">
-        <View style={styles.header}>
-          <View style={{ flex: 1 }}>
-            {title ? <Text style={styles.title}>{title}</Text> : null}
-            {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+      <KeyboardAvoidingView
+        style={styles.keyboardWrap}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 6 : 0}>
+        <Wrapper
+          style={styles.wrapper}
+          contentContainerStyle={[styles.content, contentStyle]}
+          {...wrapperProps}>
+          <View style={styles.header}>
+            <View style={{ flex: 1 }}>
+              {title ? <Text style={styles.title}>{title}</Text> : null}
+              {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+            </View>
+            {right ? <View>{right}</View> : null}
           </View>
-          {right ? <View>{right}</View> : null}
-        </View>
-        {children}
-      </Wrapper>
+          {children}
+        </Wrapper>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -162,6 +175,9 @@ const styles = StyleSheet.create({
     backgroundColor: PetCareTheme.colors.bg,
   },
   wrapper: {
+    flex: 1,
+  },
+  keyboardWrap: {
     flex: 1,
   },
   content: {

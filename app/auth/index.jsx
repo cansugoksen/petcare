@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
@@ -18,12 +18,7 @@ export default function AuthEntryScreen() {
 
   const isSignUp = mode === 'signUp';
 
-  const formHint = useMemo(() => {
-    if (isSignUp) {
-      return 'Yeni hesap oluştururken mevcut anonim verileriniz hesapla eşleştirilmeye çalışılır.';
-    }
-    return 'Farklı bir hesaba giriş yaparsanız cihazdaki anonim veriler ayrı bir kullanıcı altında kalabilir.';
-  }, [isSignUp]);
+  const formHint = 'Oturumunuz cikis yapmadiginiz surece bu cihazda acik kalir.';
 
   const handleSubmit = async () => {
     if (isSignUp) {
@@ -85,7 +80,7 @@ export default function AuthEntryScreen() {
       subtitle="PetCare hesabınızı oluşturun veya giriş yapın."
       right={
         <Pressable
-          onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
+          onPress={() => (router.canGoBack() ? router.back() : null)}
           style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.8 }]}>
           <MaterialIcons name="close" size={18} color="#456A87" />
         </Pressable>
@@ -191,14 +186,8 @@ export default function AuthEntryScreen() {
       </Card>
 
       <Card style={styles.altActionsCard}>
-        <Text style={styles.altActionsTitle}>Hızlı devam seçenekleri</Text>
+        <Text style={styles.altActionsTitle}>Hesap secenekleri</Text>
         <View style={styles.altActionsGrid}>
-          <Button
-            title="Anonim Devam Et"
-            variant="secondary"
-            onPress={() => router.replace('/(tabs)')}
-            style={styles.altBtn}
-          />
           <Button
             title={isSignUp ? 'Giriş Ekranına Geç' : 'Kayıt Ol Ekranına Geç'}
             variant="secondary"
@@ -445,3 +434,4 @@ const styles = StyleSheet.create({
     minHeight: 42,
   },
 });
+

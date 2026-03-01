@@ -1,4 +1,4 @@
-﻿const admin = require('firebase-admin');
+const admin = require('firebase-admin');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
@@ -211,7 +211,7 @@ function shouldNotifyReminder(reminder, now, lookback) {
     return false;
   }
 
-  // Ã‡ok eski bir reminder'Ä± sonsuza kadar tekrar iÅŸlememek iÃ§in pencere kÄ±sÄ±tÄ±.
+  // Çok eski bir reminder'ı sonsuza kadar tekrar işlememek için pencere kısıtı.
   if (dueDate < lookback && !isRepeating(reminder.repeatType)) {
     return false;
   }
@@ -221,7 +221,7 @@ function shouldNotifyReminder(reminder, now, lookback) {
     return true;
   }
 
-  // AynÄ± dueDate iÃ§in tekrar bildirim gÃ¶ndermeyi engelle.
+  // Aynı dueDate için tekrar bildirim göndermeyi engelle.
   return lastNotifiedAt.getTime() < dueDate.getTime();
 }
 

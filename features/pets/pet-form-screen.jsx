@@ -9,7 +9,7 @@ import DateTimePicker from '@/components/pc/date-time-picker';
 import { Button, Card, ErrorText, Field, Label, Screen } from '@/components/pc/ui';
 import { petGenderOptions, petSpeciesOptions, PetCareTheme } from '@/constants/petcare-theme';
 import { formatDateOnly, parseInputDateTime, toDate } from '@/lib/date-utils';
-import { pickImageFromCamera, pickImageFromLibrary, savePetPhotoLocal } from '@/lib/media';
+import { pickImageFromCamera, pickImageFromLibrary, uploadPetPhoto } from '@/lib/media';
 import { createPet, getPet, updatePet } from '@/lib/petcare-db';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -52,6 +52,8 @@ export function PetFormScreen({ mode = 'create', petId }) {
   const [loading, setLoading] = useState(mode === 'edit');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const speciesLabel = petSpeciesOptions.find((option) => option.key === species)?.label || 'Pet';
+  const genderLabel = petGenderOptions.find((option) => option.key === gender)?.label || 'Bilinmiyor';
 
   const closeForm = () => {
     if (router.canGoBack()) {
@@ -219,8 +221,8 @@ export function PetFormScreen({ mode = 'create', petId }) {
         currentWeight: currentWeightInput.trim() ? Number(currentWeightInput.replace(',', '.')) : null,
         photoUrl: mode === 'edit' ? persistedPhotoUrl : null,
         photoPath: mode === 'edit' ? photoPath || null : null,
-        photoLocalUri: mode === 'edit' && isLocalImageUri(photoUrl) ? photoUrl : null,
-        photoLocalPath: mode === 'edit' && isLocalImageUri(photoPath) ? photoPath : null,
+        photoLocalUri: null,
+        photoLocalPath: null,
       };
 
       let targetPetId = petId;
@@ -234,21 +236,26 @@ export function PetFormScreen({ mode = 'create', petId }) {
 
       if (localPhotoUri) {
         try {
-          const uploaded = await savePetPhotoLocal({
+          const uploaded = await uploadPetPhoto({
             uid: user.uid,
             petId: targetPetId,
             uri: localPhotoUri,
           });
-          setPhotoPath(uploaded.photoLocalPath || '');
-          setPhotoUrl(uploaded.photoLocalUri || '');
-          await updatePet(user.uid, targetPetId, uploaded);
+          setPhotoPath(uploaded.photoPath || '');
+          setPhotoUrl(uploaded.photoUrl || '');
+          await updatePet(user.uid, targetPetId, {
+            photoUrl: uploaded.photoUrl || null,
+            photoPath: uploaded.photoPath || null,
+            photoLocalUri: null,
+            photoLocalPath: null,
+          });
         } catch (photoErr) {
-          photoUploadWarning = photoErr.message || 'Fotoğraf cihaz içine kaydedilemedi.';
+          photoUploadWarning = photoErr.message || 'Fotoğraf cloud depoya yüklenemedi.';
         }
       }
 
       if (photoUploadWarning) {
-        Alert.alert('Pet kaydedildi', `Pet kaydı oluşturuldu ancak fotoğraf cihaz içine kaydedilemedi.\n\n${photoUploadWarning}`);
+        Alert.alert('Pet kaydedildi', `Pet kaydı oluşturuldu ancak fotoğraf yüklemesi başarısız.\n\n${photoUploadWarning}`);
       }
 
       closeForm();
@@ -264,21 +271,37 @@ export function PetFormScreen({ mode = 'create', petId }) {
       title={mode === 'create' ? 'Pet Ekle' : 'Pet Düzenle'}
       subtitle={mode === 'create' ? 'Fotoğraf, temel bilgiler ve mevcut kilo kaydı' : 'Profil bilgilerini güncelleyin'}
       scroll>
-      <Card>
+      <Card style={styles.heroCard}>
+        <View style={styles.heroGlowBlue} />
+        <View style={styles.heroGlowMint} />
         <View style={styles.heroRow}>
           <View style={styles.heroIconWrap}>
             <MaterialIcons name="pets" size={18} color="#4E7FA6" />
           </View>
           <View style={{ flex: 1 }}>
+            <View style={styles.heroTopRow}>
+              <View style={styles.heroModeChip}>
+                <Text style={styles.heroModeChipText}>{mode === 'create' ? 'Yeni profil' : 'Düzenleme'}</Text>
+              </View>
+              <View style={styles.heroMetaDot}>
+                <MaterialIcons name="auto-awesome" size={12} color="#5C87AA" />
+              </View>
+            </View>
             <Text style={styles.heroTitle}>{mode === 'create' ? 'Profil oluşturun' : 'Profili düzenleyin'}</Text>
             <Text style={styles.heroText}>
               Tür, cinsiyet ve sağlık başlangıç bilgileri hatırlatma deneyimini daha düzenli hale getirir.
             </Text>
           </View>
         </View>
+        <View style={styles.heroStatsRow}>
+          <MiniInfoChip label={speciesLabel} tone="blue" />
+          <MiniInfoChip label={genderLabel} tone="green" />
+          <MiniInfoChip label={photoUrl ? 'Fotoğraf hazır' : 'Fotoğraf opsiyonel'} />
+          <MiniInfoChip label={birthDateInput ? 'Doğum tarihi var' : 'Doğum tarihi opsiyonel'} />
+        </View>
       </Card>
 
-      <Card>
+      <Card style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
           <MaterialIcons name="photo-camera" size={16} color="#5A83A3" />
           <Text style={styles.sectionTitle}>Fotoğraf</Text>
@@ -306,7 +329,7 @@ export function PetFormScreen({ mode = 'create', petId }) {
         </View>
       </Card>
 
-      <Card>
+      <Card style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
           <MaterialIcons name="badge" size={16} color="#5A83A3" />
           <Text style={styles.sectionTitle}>Temel Profil</Text>
@@ -340,7 +363,7 @@ export function PetFormScreen({ mode = 'create', petId }) {
         />
       </Card>
 
-      <Card>
+      <Card style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
           <MaterialIcons name="wc" size={16} color="#5A83A3" />
           <Text style={styles.sectionTitle}>Cinsiyet</Text>
@@ -362,7 +385,7 @@ export function PetFormScreen({ mode = 'create', petId }) {
         </View>
       </Card>
 
-      <Card>
+      <Card style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
           <MaterialIcons name="monitor-heart" size={16} color="#5A83A3" />
           <Text style={styles.sectionTitle}>Sağlık Başlangıcı</Text>
@@ -434,7 +457,15 @@ export function PetFormScreen({ mode = 'create', petId }) {
         </View>
       </Card>
 
-      <Card style={styles.footerCard}>
+      <Card style={[styles.sectionCard, styles.footerCard]}>
+        <View style={styles.footerInfoRow}>
+          <View style={styles.footerInfoIcon}>
+            <MaterialIcons name="verified-user" size={14} color="#366A93" />
+          </View>
+          <Text style={styles.footerInfoText}>
+            Kaydedilen bilgiler profil kartı ve hatırlatma akışında kullanılır.
+          </Text>
+        </View>
         <ErrorText>{error}</ErrorText>
         <View style={styles.footerRow}>
           <Button title="İptal" variant="secondary" onPress={closeForm} style={{ flex: 1 }} />
@@ -587,6 +618,36 @@ function getSpeciesButtonVisual(speciesKey) {
 }
 
 const styles = StyleSheet.create({
+  heroCard: {
+    overflow: 'hidden',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D5E7F7',
+    backgroundColor: '#F7FBFF',
+    shadowColor: '#8CB5D8',
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
+  },
+  heroGlowBlue: {
+    position: 'absolute',
+    top: -24,
+    right: -14,
+    width: 118,
+    height: 118,
+    borderRadius: 59,
+    backgroundColor: 'rgba(121, 181, 233, 0.18)',
+  },
+  heroGlowMint: {
+    position: 'absolute',
+    left: -18,
+    bottom: -28,
+    width: 104,
+    height: 104,
+    borderRadius: 52,
+    backgroundColor: 'rgba(116, 219, 186, 0.12)',
+  },
   heroRow: {
     flexDirection: 'row',
     gap: 10,
@@ -595,6 +656,13 @@ const styles = StyleSheet.create({
     borderColor: '#DCEAF5',
     backgroundColor: '#F4FAFF',
     padding: 10,
+  },
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 2,
   },
   heroIconWrap: {
     width: 34,
@@ -616,6 +684,46 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     marginTop: 2,
+  },
+  heroModeChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#D7EAF9',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  heroModeChipText: {
+    color: '#4B779B',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  heroMetaDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#D7EAF9',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+  },
+  heroStatsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+  },
+  sectionCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E1EBF4',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#95ACC0',
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 1,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -805,6 +913,33 @@ const styles = StyleSheet.create({
   },
   footerCard: {
     gap: 8,
+    borderColor: '#DCEAF7',
+    backgroundColor: '#F9FCFF',
+  },
+  footerInfoRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'flex-start',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DCEAF7',
+    backgroundColor: '#EFF7FF',
+    padding: 10,
+  },
+  footerInfoIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E1F0FD',
+  },
+  footerInfoText: {
+    flex: 1,
+    color: '#557C9D',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
   },
 });
 

@@ -1,6 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,47 +7,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PetCareTheme } from '@/constants/petcare-theme';
 import { useAuth } from '@/providers/auth-provider';
 
-const AUTH_PROMPT_SEEN_KEY = 'petcare:auth-prompt-seen:v1';
-const AUTH_PROMPT_SUPPRESS_KEY = 'petcare:auth-prompt-suppress:v1';
-
 export default function TabLayout() {
   const { user, initializing } = useAuth();
   const insets = useSafeAreaInsets();
-  const promptedRef = useRef(false);
 
   useEffect(() => {
-    if (initializing || promptedRef.current) {
-      return;
+    if (!initializing && !user?.uid) {
+      router.replace('/auth');
     }
-
-    if (!user?.uid || !user.isAnonymous) {
-      return;
-    }
-
-    let cancelled = false;
-
-    (async () => {
-      try {
-        const seen = await AsyncStorage.getItem(AUTH_PROMPT_SEEN_KEY);
-        const suppress = await AsyncStorage.getItem(AUTH_PROMPT_SUPPRESS_KEY);
-        const shouldShow = !seen || suppress === '0';
-
-        if (shouldShow && !cancelled) {
-          promptedRef.current = true;
-          router.push('/auth/welcome');
-        }
-      } catch {
-        if (!cancelled) {
-          promptedRef.current = true;
-          router.push('/auth/welcome');
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [initializing, user?.uid, user?.isAnonymous]);
+  }, [initializing, user?.uid]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -110,7 +77,7 @@ export default function TabLayout() {
           pressed && { opacity: 0.88 },
         ]}>
         <MaterialIcons name="menu" size={18} color="#1E8E7E" />
-        <Text style={styles.settingsLauncherText}>Menü</Text>
+        <Text style={styles.settingsLauncherText}>Menu</Text>
       </Pressable>
     </View>
   );

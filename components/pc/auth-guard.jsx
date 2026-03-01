@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
 
 import { PetCareTheme } from '@/constants/petcare-theme';
 import { useAuth } from '@/providers/auth-provider';
@@ -6,11 +8,17 @@ import { useAuth } from '@/providers/auth-provider';
 export function AuthGate({ children }) {
   const { initializing, error, user } = useAuth();
 
+  useEffect(() => {
+    if (!initializing && !user) {
+      router.replace('/auth');
+    }
+  }, [initializing, user]);
+
   if (initializing) {
     return (
       <View style={styles.center}>
         <ActivityIndicator color={PetCareTheme.colors.primary} />
-        <Text style={styles.text}>Anonim giriş hazırlanıyor...</Text>
+        <Text style={styles.text}>Oturum kontrol ediliyor...</Text>
       </View>
     );
   }
@@ -18,7 +26,7 @@ export function AuthGate({ children }) {
   if (error) {
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>Giriş hatası: {error.message}</Text>
+        <Text style={styles.error}>Giris hatasi: {error.message}</Text>
       </View>
     );
   }
@@ -26,7 +34,8 @@ export function AuthGate({ children }) {
   if (!user) {
     return (
       <View style={styles.center}>
-        <Text style={styles.error}>Kullanıcı oturumu başlatılamadı.</Text>
+        <ActivityIndicator color={PetCareTheme.colors.primary} />
+        <Text style={styles.text}>Giris ekranina yonlendiriliyor...</Text>
       </View>
     );
   }

@@ -78,4 +78,3 @@ export const petGenderLabels = {
 export function getPetGenderLabel(gender) {
   return petGenderLabels[gender] || 'Bilinmiyor';
 }
-

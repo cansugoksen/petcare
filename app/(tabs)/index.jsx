@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 
@@ -59,7 +59,7 @@ function HomeTabContent() {
     }
 
     if (!pets.length) {
-      Alert.alert('Önce pet ekleyin', 'Bu işlemi kullanmak için önce bir pet profili oluşturun.');
+      Alert.alert('Ã–nce pet ekleyin', 'Bu iÅŸlemi kullanmak iÃ§in Ã¶nce bir pet profili oluÅŸturun.');
       return;
     }
 
@@ -71,8 +71,8 @@ function HomeTabContent() {
       return;
     }
 
-    Alert.alert('Pet seçimi gerekli', 'İlgili kaydı eklemek için önce pet seçin.', [
-      { text: 'Vazgeç', style: 'cancel' },
+    Alert.alert('Pet seÃ§imi gerekli', 'Ä°lgili kaydÄ± eklemek iÃ§in Ã¶nce pet seÃ§in.', [
+      { text: 'VazgeÃ§', style: 'cancel' },
       { text: 'Petler', onPress: () => router.push('/(tabs)/pets') },
     ]);
   };
@@ -84,7 +84,7 @@ function HomeTabContent() {
     }
 
     if (!reminders.length) {
-      Alert.alert('Kayıt bulunmuyor', 'Henüz aktif bir hatırlatma bulunmuyor.');
+      Alert.alert('KayÄ±t bulunmuyor', 'HenÃ¼z aktif bir hatÄ±rlatma bulunmuyor.');
       return;
     }
 
@@ -92,22 +92,22 @@ function HomeTabContent() {
   };
 
   return (
-    <Screen title="PetCare" subtitle="Sağlık rutinlerini daha canlı ama sade bir panelden yönetin.">
+    <Screen title="PetCare" subtitle="SaÄŸlÄ±k rutinlerini daha canlÄ± ama sade bir panelden yÃ¶netin.">
       <Card style={styles.heroCard}>
         <View style={styles.heroGlowA} />
         <View style={styles.heroGlowB} />
 
         <View style={styles.heroHeader}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.heroEyebrow}>Bugün</Text>
-            <Text style={styles.heroTitle}>{stats.todayCount > 0 ? `${stats.todayCount} hatırlatma` : 'Sakin gün'}</Text>
+            <Text style={styles.heroEyebrow}>BugÃ¼n</Text>
+            <Text style={styles.heroTitle}>{stats.todayCount > 0 ? `${stats.todayCount} hatÄ±rlatma` : 'Sakin gÃ¼n'}</Text>
             <Text style={styles.heroSubtitle}>
               {nearestReminder
-                ? `${nearestReminder.petName || 'Pet'} için sıradaki kayıt hazır.`
-                : 'Bugün için planlı hatırlatma görünmüyor.'}
+                ? `${nearestReminder.petName || 'Pet'} iÃ§in sÄ±radaki kayÄ±t hazÄ±r.`
+                : 'BugÃ¼n iÃ§in planlÄ± hatÄ±rlatma gÃ¶rÃ¼nmÃ¼yor.'}
             </Text>
           </View>
-          <Chip label={stats.todayCount > 0 ? 'Planlı' : 'Boş'} tone={stats.todayCount > 0 ? 'warning' : 'primary'} />
+          <Chip label={stats.todayCount > 0 ? 'PlanlÄ±' : 'BoÅŸ'} tone={stats.todayCount > 0 ? 'warning' : 'primary'} />
         </View>
 
         <View style={styles.heroMiniStats}>
@@ -126,10 +126,10 @@ function HomeTabContent() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.nearestTitle} numberOfLines={1}>
-                {nearestReminder.title || 'Hatırlatma'}
+                {nearestReminder.title || 'HatÄ±rlatma'}
               </Text>
               <Text style={styles.nearestMeta} numberOfLines={1}>
-                {nearestReminder.petName || 'Pet'} • {formatDateTime(nearestReminder.dueDate)}
+                {nearestReminder.petName || 'Pet'} â€¢ {formatDateTime(nearestReminder.dueDate)}
               </Text>
             </View>
             <MaterialIcons name="chevron-right" size={18} color="#7B97AB" />
@@ -139,13 +139,13 @@ function HomeTabContent() {
             <View style={styles.calmIcon}>
               <MaterialIcons name="event-available" size={16} color="#3F8C79" />
             </View>
-            <Text style={styles.calmText}>Yaklaşan aktif hatırlatma bulunmuyor.</Text>
+            <Text style={styles.calmText}>YaklaÅŸan aktif hatÄ±rlatma bulunmuyor.</Text>
           </View>
         )}
       </Card>
 
       <View style={styles.statsRow}>
-        <StatCard label="Bugün" value={stats.todayCount} icon="today" tone="sky" onPress={() => handleStatPress('today')} />
+        <StatCard label="BugÃ¼n" value={stats.todayCount} icon="today" tone="sky" onPress={() => handleStatPress('today')} />
         <StatCard label="Bu Hafta" value={stats.weekCount} icon="calendar-view-week" tone="mint" onPress={() => handleStatPress('week')} />
         <StatCard label="Petler" value={stats.petCount} icon="pets" tone="violet" onPress={() => handleStatPress('pets')} />
         <StatCard label="Aktif" value={stats.activeCount} icon="notifications-active" tone="amber" onPress={() => handleStatPress('active')} />
@@ -153,34 +153,34 @@ function HomeTabContent() {
 
       <Card style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Hızlı İşlemler</Text>
-          <Text style={styles.sectionSubtle}>Tek dokunuş</Text>
+          <Text style={styles.sectionTitle}>HÄ±zlÄ± Ä°ÅŸlemler</Text>
+          <Text style={styles.sectionSubtle}>Tek dokunuÅŸ</Text>
         </View>
 
         <View style={styles.quickGrid}>
           <QuickAction icon="pets" label="Pet Ekle" subtitle="Yeni profil" tone="sky" onPress={() => handleQuickAction('addPet')} />
           <QuickAction
             icon="notifications-active"
-            label="Hatırlatma"
-            subtitle="Aşı / ilaç / vet"
+            label="HatÄ±rlatma"
+            subtitle="AÅŸÄ± / ilaÃ§ / vet"
             tone="mint"
             onPress={() => handleQuickAction('addReminder')}
           />
-          <QuickAction icon="timeline" label="Kilo" subtitle="Ölçüm ekle" tone="amber" onPress={() => handleQuickAction('addWeight')} />
-          <QuickAction icon="fact-check" label="Sağlık Notu" subtitle="Günlük durum" tone="violet" onPress={() => handleQuickAction('addLog')} />
+          <QuickAction icon="timeline" label="Kilo" subtitle="Ã–lÃ§Ã¼m ekle" tone="amber" onPress={() => handleQuickAction('addWeight')} />
+          <QuickAction icon="fact-check" label="SaÄŸlÄ±k Notu" subtitle="GÃ¼nlÃ¼k durum" tone="violet" onPress={() => handleQuickAction('addLog')} />
         </View>
       </Card>
 
       <Card style={styles.sectionCard}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Yaklaşan Hatırlatmalar</Text>
+          <Text style={styles.sectionTitle}>YaklaÅŸan HatÄ±rlatmalar</Text>
           {upcomingList.length ? <Chip label={`${upcomingList.length}`} /> : null}
         </View>
 
         {error ? (
           <View style={styles.inlineNotice}>
             <MaterialIcons name="error-outline" size={15} color={PetCareTheme.colors.danger} />
-            <Text style={[styles.inlineNoticeText, { color: PetCareTheme.colors.danger }]}>Hatırlatmalar alınamadı.</Text>
+            <Text style={[styles.inlineNoticeText, { color: PetCareTheme.colors.danger }]}>HatÄ±rlatmalar alÄ±namadÄ±.</Text>
           </View>
         ) : null}
 
@@ -190,37 +190,45 @@ function HomeTabContent() {
               <MaterialIcons name="event-available" size={18} color="#6990AF" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.emptyTitle}>Yaklaşan kayıt yok</Text>
-              <Text style={styles.emptySub}>Yeni hatırlatmalar burada listelenir.</Text>
+              <Text style={styles.emptyTitle}>YaklaÅŸan kayÄ±t yok</Text>
+              <Text style={styles.emptySub}>Yeni hatÄ±rlatmalar burada listelenir.</Text>
             </View>
           </View>
         ) : (
           <View style={styles.listWrap}>
-            {upcomingList.map((item, index) => (
-              <Pressable
-                key={item.id}
-                onPress={() => router.push(`/pets/${item.petId}`)}
-                style={({ pressed }) => [
-                  styles.reminderItem,
-                  index < upcomingList.length - 1 && styles.reminderItemBorder,
-                  pressed && { opacity: 0.93 },
-                ]}>
-                <View style={styles.reminderBadge}>
-                  <Text style={styles.reminderBadgeText}>{shortDate(item.dueDate)}</Text>
-                </View>
+            <FlatList
+              data={upcomingList}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item, index }) => (
+                <Pressable
+                  onPress={() => router.push(`/pets/${item.petId}`)}
+                  style={({ pressed }) => [
+                    styles.reminderItem,
+                    index < upcomingList.length - 1 && styles.reminderItemBorder,
+                    pressed && { opacity: 0.93 },
+                  ]}>
+                  <View style={styles.reminderBadge}>
+                    <Text style={styles.reminderBadgeText}>{shortDate(item.dueDate)}</Text>
+                  </View>
 
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.reminderTitle} numberOfLines={1}>
-                    {item.title || 'Hatırlatma'}
-                  </Text>
-                  <Text style={styles.reminderMeta} numberOfLines={1}>
-                    {item.petName || 'Pet'} • {reminderTypeLabels[item.type] || 'Hatırlatma'}
-                  </Text>
-                </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.reminderTitle} numberOfLines={1}>
+                      {item.title || 'HatÄ±rlatma'}
+                    </Text>
+                    <Text style={styles.reminderMeta} numberOfLines={1}>
+                      {item.petName || 'Pet'} â€¢ {reminderTypeLabels[item.type] || 'HatÄ±rlatma'}
+                    </Text>
+                  </View>
 
-                <Text style={styles.reminderTime}>{shortTime(item.dueDate)}</Text>
-              </Pressable>
-            ))}
+                  <Text style={styles.reminderTime}>{shortTime(item.dueDate)}</Text>
+                </Pressable>
+              )}
+              scrollEnabled={false}
+              removeClippedSubviews
+              initialNumToRender={5}
+              maxToRenderPerBatch={8}
+              windowSize={3}
+            />
           </View>
         )}
       </Card>
@@ -679,3 +687,4 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+

@@ -1,4 +1,4 @@
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
@@ -20,12 +20,13 @@ export default function SettingsDrawerRoute() {
 }
 
 function SettingsDrawerScreen() {
-  const { user, authBusy, signOutToAnonymous } = useAuth();
+  const { user, userProfile, authBusy, signOutUser } = useAuth();
 
-  const isAnonymous = !!user?.isAnonymous;
-  const displayName = user?.displayName || (isAnonymous ? 'Anonim Kullanıcı' : 'PetCare Kullanıcısı');
-  const accountMeta = user?.email || (isAnonymous ? 'Anonim oturum aktif' : 'Hesap oturumu aktif');
-  const avatarLetter = (user?.displayName || user?.email || 'P').slice(0, 2).toUpperCase();
+  const displayName = userProfile?.displayName || user?.displayName || 'PetCare Kullanıcısı';
+  const accountMeta = userProfile?.email || user?.email || 'Hesap oturumu aktif';
+  const avatarLetter = (userProfile?.displayName || user?.displayName || userProfile?.email || user?.email || 'P')
+    .slice(0, 2)
+    .toUpperCase();
 
   const closeDrawer = () => {
     if (router.canGoBack()) {
@@ -47,81 +48,14 @@ function SettingsDrawerScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            await signOutToAnonymous();
-            router.replace('/auth/welcome');
+            await signOutUser();
+            router.replace('/auth');
           } catch (err) {
             Alert.alert('Hata', err.message);
           }
         },
       },
     ]);
-  };
-
-  const handleAnonymousMode = () => {
-    Alert.alert('Anonim moda dön', 'Hesap oturumu kapatılacak ve anonim mod başlatılacak. Devam edilsin mi?', [
-      { text: 'Vazgeç', style: 'cancel' },
-      {
-        text: 'Devam Et',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await signOutToAnonymous();
-            Alert.alert('Tamamlandı', 'Anonim oturum başlatıldı.');
-            closeDrawer();
-          } catch (err) {
-            Alert.alert('Hata', err.message);
-          }
-        },
-      },
-    ]);
-  };
-
-  const openFamilyAccess = async () => {
-    closeDrawer();
-    try {
-      const lastPetId = await AsyncStorage.getItem(LAST_VIEWED_PET_KEY);
-      if (lastPetId) {
-        router.push(`/pets/${lastPetId}/family-access`);
-        return;
-      }
-    } catch {}
-
-    try {
-      const firstPetId = await getFirstAccessiblePetId(user?.uid);
-      if (firstPetId) {
-        router.push(`/pets/${firstPetId}/family-access`);
-        return;
-      }
-    } catch {}
-
-    router.push('/(tabs)/pets');
-    setTimeout(() => {
-      Alert.alert('Aile & Erişim', 'Henüz pet bulunamadı. Önce bir pet ekleyin veya pet detayını açın.');
-    }, 250);
-  };
-
-  const openPetAlbum = async () => {
-    closeDrawer();
-    try {
-      const lastPetId = await AsyncStorage.getItem(LAST_VIEWED_PET_KEY);
-      if (lastPetId) {
-        router.push(`/pets/${lastPetId}?tab=album`);
-        return;
-      }
-    } catch {}
-
-    try {
-      const firstPetId = await getFirstAccessiblePetId(user?.uid);
-      if (firstPetId) {
-        router.push(`/pets/${firstPetId}?tab=album`);
-        return;
-      }
-    } catch {}
-
-    router.push('/(tabs)/pets');
-    setTimeout(() => {
-      Alert.alert('Pet Yaşam Albümü', 'Henüz pet bulunamadı. Önce bir pet ekleyin veya pet detayını açın.');
-    }, 250);
   };
 
   const openPetDigitalId = async () => {
@@ -177,6 +111,11 @@ function SettingsDrawerScreen() {
     router.push('/nearby');
   };
 
+  const openProfileAccount = () => {
+    closeDrawer();
+    router.push('/auth');
+  };
+
   const menuItems = [
     {
       key: 'home',
@@ -195,18 +134,6 @@ function SettingsDrawerScreen() {
         closeDrawer();
         router.push('/(tabs)/pets');
       },
-    },
-    {
-      key: 'family-access',
-      icon: 'groups',
-      label: 'Aile & Erişim',
-      onPress: openFamilyAccess,
-    },
-    {
-      key: 'pet-life-album',
-      icon: 'auto-stories',
-      label: 'Pet Yaşam Albümü',
-      onPress: openPetAlbum,
     },
     {
       key: 'pet-digital-id',
@@ -254,16 +181,6 @@ function SettingsDrawerScreen() {
       },
     },
     {
-      key: 'account',
-      icon: 'person-outline',
-      label: 'Profil / Hesap',
-      onPress: () => {
-        closeDrawer();
-        router.push('/auth');
-      },
-      hidden: !isAnonymous && !user?.email,
-    },
-    {
       key: 'help',
       icon: 'help-outline',
       label: 'Yardım',
@@ -283,7 +200,9 @@ function SettingsDrawerScreen() {
 
       <SafeAreaView style={styles.panel} edges={['top', 'bottom']}>
         <View style={styles.header}>
-          <View style={styles.accountIdentity}>
+          <Pressable
+            onPress={openProfileAccount}
+            style={({ pressed }) => [styles.accountIdentity, pressed && { opacity: 0.9 }]}>
             <View style={styles.avatarCircle}>
               <Text style={styles.avatarText}>{avatarLetter}</Text>
             </View>
@@ -296,7 +215,10 @@ function SettingsDrawerScreen() {
                 {accountMeta}
               </Text>
             </View>
-          </View>
+            <View style={styles.accountChevron}>
+              <MaterialIcons name="chevron-right" size={18} color="#C8D6E5" />
+            </View>
+          </Pressable>
 
           <Pressable onPress={closeDrawer} style={({ pressed }) => [styles.closeBtn, pressed && { opacity: 0.82 }]}>
             <MaterialIcons name="close" size={22} color="#D5DFEC" />
@@ -304,7 +226,7 @@ function SettingsDrawerScreen() {
         </View>
 
         <View style={styles.headerStatusRow}>
-          <Chip label={isAnonymous ? 'Anonim' : 'Hesaplı'} tone={isAnonymous ? 'warning' : 'primary'} />
+          <Chip label="Hesaplı" tone="primary" />
           <Text style={styles.versionText}>PetCare MVP</Text>
         </View>
 
@@ -326,38 +248,27 @@ function SettingsDrawerScreen() {
 
           <SectionDivider />
 
-          <View style={styles.menuList}>
-            {menuItems.map((item) => (
-              <MenuRow key={item.key} icon={item.icon} label={item.label} onPress={item.onPress} />
-            ))}
-          </View>
+          <FlatList
+            data={menuItems}
+            keyExtractor={(item) => item.key}
+            renderItem={({ item }) => <MenuRow icon={item.icon} label={item.label} onPress={item.onPress} />}
+            ItemSeparatorComponent={() => <View style={styles.menuListGap} />}
+            scrollEnabled={false}
+            removeClippedSubviews
+            initialNumToRender={10}
+            maxToRenderPerBatch={14}
+            windowSize={6}
+            contentContainerStyle={styles.menuListContent}
+          />
 
           <SectionDivider />
 
-          {!isAnonymous ? (
-            <>
-              <MenuRow
-                icon="person-outline"
-                label={authBusy ? 'Geçiş yapılıyor...' : 'Anonim Moda Dön'}
-                onPress={authBusy ? () => {} : handleAnonymousMode}
-              />
-              <MenuRow
-                icon="power-settings-new"
-                label={authBusy ? 'İşlem yapılıyor...' : 'Çıkış Yap'}
-                onPress={authBusy ? () => {} : handleSignOut}
-                danger
-              />
-            </>
-          ) : (
-            <MenuRow
-              icon="login"
-              label="Giriş Yap / Kayıt Ol"
-              onPress={() => {
-                closeDrawer();
-                router.push('/auth');
-              }}
-            />
-          )}
+          <MenuRow
+            icon="power-settings-new"
+            label={authBusy ? 'İşlem yapılıyor...' : 'Çıkış Yap'}
+            onPress={authBusy ? () => {} : handleSignOut}
+            danger
+          />
 
           {__DEV__ ? (
             <>
@@ -467,6 +378,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
+  accountChevron: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
   closeBtn: {
     width: 36,
     height: 36,
@@ -524,8 +443,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  menuList: {
-    gap: 4,
+  menuListContent: {
+    gap: 0,
+  },
+  menuListGap: {
+    height: 4,
   },
   menuRow: {
     minHeight: 50,
@@ -548,3 +470,7 @@ const styles = StyleSheet.create({
     color: '#FFD4D8',
   },
 });
+
+
+
+

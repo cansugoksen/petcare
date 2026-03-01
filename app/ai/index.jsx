@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router, useLocalSearchParams } from 'expo-router';
 
@@ -279,10 +279,12 @@ function AiAssistantScreen() {
             <Button title="Pet Ekle" onPress={() => router.push('/pets/new')} />
           </View>
         ) : (
-          <View style={styles.petChipWrap}>
-            {pets.map((pet) => (
+          <FlatList
+            data={pets}
+            horizontal
+            keyExtractor={(pet) => pet.id}
+            renderItem={({ item: pet }) => (
               <Pressable
-                key={pet.id}
                 onPress={() => setSelectedPetId(pet.id)}
                 style={({ pressed }) => [
                   styles.petChipBtn,
@@ -298,8 +300,15 @@ function AiAssistantScreen() {
                   {pet.name || 'Pet'}
                 </Text>
               </Pressable>
-            ))}
-          </View>
+            )}
+            ItemSeparatorComponent={() => <View style={styles.petChipGap} />}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.petChipWrap}
+            removeClippedSubviews
+            initialNumToRender={8}
+            maxToRenderPerBatch={12}
+            windowSize={5}
+          />
         )}
       </Card>
 
@@ -385,17 +394,39 @@ function AiAssistantScreen() {
             </View>
           ) : null}
 
-          {result.sections?.map((section) => (
-            <View key={section.title} style={styles.resultSection}>
-              <Text style={styles.resultSectionTitle}>{section.title}</Text>
-              {section.items.map((line, idx) => (
-                <View key={`${section.title}-${idx}`} style={styles.resultBulletRow}>
-                  <View style={styles.resultDot} />
-                  <Text style={styles.resultLine}>{line}</Text>
-                </View>
-              ))}
-            </View>
-          ))}
+          <FlatList
+            data={result.sections || []}
+            keyExtractor={(section, index) => `${section.title || 'section'}-${index}`}
+            renderItem={({ item: section }) => (
+              <View style={styles.resultSection}>
+                <Text style={styles.resultSectionTitle}>{section.title}</Text>
+                <FlatList
+                  data={section.items || []}
+                  keyExtractor={(line, idx) => `${section.title}-${idx}-${String(line).slice(0, 12)}`}
+                  renderItem={({ item: line }) => (
+                    <View style={styles.resultBulletRow}>
+                      <View style={styles.resultDot} />
+                      <Text style={styles.resultLine}>{line}</Text>
+                    </View>
+                  )}
+                  ItemSeparatorComponent={() => <View style={styles.resultBulletGap} />}
+                  scrollEnabled={false}
+                  removeClippedSubviews
+                  initialNumToRender={8}
+                  maxToRenderPerBatch={12}
+                  windowSize={5}
+                  contentContainerStyle={styles.resultBulletListContent}
+                />
+              </View>
+            )}
+            ItemSeparatorComponent={() => <View style={styles.resultSectionGap} />}
+            scrollEnabled={false}
+            removeClippedSubviews
+            initialNumToRender={6}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            contentContainerStyle={styles.resultSectionListContent}
+          />
 
           {result.shareText ? (
             <View style={styles.resultActionsRow}>
@@ -983,8 +1014,11 @@ const styles = StyleSheet.create({
   },
   petChipWrap: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+    alignItems: 'flex-start',
+    paddingRight: 6,
+  },
+  petChipGap: {
+    width: 8,
   },
   petChipBtn: {
     flexDirection: 'row',
@@ -1126,6 +1160,12 @@ const styles = StyleSheet.create({
   resultSection: {
     gap: 6,
   },
+  resultSectionListContent: {
+    gap: 0,
+  },
+  resultSectionGap: {
+    height: 10,
+  },
   resultSectionTitle: {
     color: '#173B56',
     fontSize: 13,
@@ -1135,6 +1175,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
+  },
+  resultBulletListContent: {
+    gap: 0,
+  },
+  resultBulletGap: {
+    height: 6,
   },
   resultDot: {
     width: 6,

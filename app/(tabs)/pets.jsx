@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { router } from 'expo-router';
 
 import { AuthGate } from '@/components/pc/auth-guard';
 import { Button, Card, EmptyState, Screen } from '@/components/pc/ui';
-import { getPetGenderLabel, getPetSpeciesLabel, PetCareTheme } from '@/constants/petcare-theme';
-import { formatDateOnly } from '@/lib/date-utils';
+import { getPetSpeciesLabel, PetCareTheme } from '@/constants/petcare-theme';
 import { deleteLocalFileIfExists } from '@/lib/media';
 import { deletePet, subscribePets, subscribeSharedPet, subscribeSharedPetMemberships } from '@/lib/petcare-db';
 import { useAuth } from '@/providers/auth-provider';
@@ -52,7 +51,7 @@ function PetsTabContent() {
         setSharedMemberships(rows);
       },
       () => {
-        // Shared pets draft altyapısı henüz her kullanıcıda aktif olmayabilir.
+        // Shared pets draft altyapÄ±sÄ± henÃ¼z her kullanÄ±cÄ±da aktif olmayabilir.
       }
     );
 
@@ -114,12 +113,12 @@ function PetsTabContent() {
 
   const handleDelete = (pet) => {
     if (pet._source === 'shared') {
-      Alert.alert('Bilgi', 'Ortak pet kaydı bu ekrandan silinemez.');
+      Alert.alert('Bilgi', 'Ortak pet kaydÄ± bu ekrandan silinemez.');
       return;
     }
 
-    Alert.alert('Pet silinsin mi?', `${pet.name} kaydı ve alt verileri silinecek.`, [
-      { text: 'Vazgeç', style: 'cancel' },
+    Alert.alert('Pet silinsin mi?', `${pet.name} kaydÄ± ve alt verileri silinecek.`, [
+      { text: 'VazgeÃ§', style: 'cancel' },
       {
         text: 'Sil',
         style: 'destructive',
@@ -128,7 +127,7 @@ function PetsTabContent() {
             setDeletingId(pet.id);
             await deletePet(user.uid, pet.id);
             await deleteLocalFileIfExists(pet.photoLocalPath || pet.photoLocalUri);
-            Alert.alert('Silindi', `${pet.name} kaydı silindi.`);
+            Alert.alert('Silindi', `${pet.name} kaydÄ± silindi.`);
           } catch (err) {
             Alert.alert('Hata', err.message);
           } finally {
@@ -141,7 +140,7 @@ function PetsTabContent() {
 
   const handleOpenPet = (pet) => {
     if (pet._source === 'shared') {
-      Alert.alert('Hazırlanıyor', 'Ortak pet detay ekranı yeni veri modeline taşınıyor.');
+      Alert.alert('HazÄ±rlanÄ±yor', 'Ortak pet detay ekranÄ± yeni veri modeline taÅŸÄ±nÄ±yor.');
       return;
     }
     router.push(`/pets/${pet.id}`);
@@ -149,7 +148,7 @@ function PetsTabContent() {
 
   const handleEditPet = (pet) => {
     if (pet._source === 'shared') {
-      Alert.alert('Hazırlanıyor', 'Ortak pet düzenleme akışı sonraki adımda açılacak.');
+      Alert.alert('HazÄ±rlanÄ±yor', 'Ortak pet dÃ¼zenleme akÄ±ÅŸÄ± sonraki adÄ±mda aÃ§Ä±lacak.');
       return;
     }
     router.push(`/pets/${pet.id}/edit`);
@@ -158,7 +157,7 @@ function PetsTabContent() {
   return (
     <Screen
       title="Petlerim"
-      subtitle="Kedi, köpek ve kuş profillerini tek yerden yönetin."
+      subtitle="Kedi, kÃ¶pek ve kuÅŸ profillerini tek yerden yÃ¶netin."
       right={<Button title="+ Ekle" onPress={() => router.push('/pets/new')} style={{ minWidth: 84 }} />}>
       <Card style={styles.heroCard}>
         <View style={styles.heroGlowA} />
@@ -166,9 +165,9 @@ function PetsTabContent() {
 
         <View style={styles.heroTop}>
           <View style={{ flex: 1, gap: 2 }}>
-            <Text style={styles.heroEyebrow}>Profil Yönetimi</Text>
-            <Text style={styles.heroTitle}>{pets.length ? `${pets.length} pet profili aktif` : 'İlk pet profilini oluşturun'}</Text>
-            <Text style={styles.heroSub}>Profilleri düzenleyin, detaylara girin ve sağlık takibini başlatın.</Text>
+            <Text style={styles.heroEyebrow}>Profil YÃ¶netimi</Text>
+            <Text style={styles.heroTitle}>{pets.length ? `${pets.length} pet profili aktif` : 'Ä°lk pet profilini oluÅŸturun'}</Text>
+            <Text style={styles.heroSub}>Profilleri dÃ¼zenleyin, detaylara girin ve saÄŸlÄ±k takibini baÅŸlatÄ±n.</Text>
           </View>
           <View style={styles.heroIconWrap}>
             <MaterialIcons name="pets" size={22} color="#2A5D85" />
@@ -178,8 +177,8 @@ function PetsTabContent() {
         <View style={styles.summaryGrid}>
           <SummaryMiniCard label="Toplam" value={summary.total} tone="sky" />
           <SummaryMiniCard label="Kedi" value={summary.cats} tone="violet" />
-          <SummaryMiniCard label="Köpek" value={summary.dogs} tone="mint" />
-          <SummaryMiniCard label="Kuş" value={summary.birds} tone="amber" />
+          <SummaryMiniCard label="KÃ¶pek" value={summary.dogs} tone="mint" />
+          <SummaryMiniCard label="KuÅŸ" value={summary.birds} tone="amber" />
         </View>
       </Card>
 
@@ -193,13 +192,15 @@ function PetsTabContent() {
       ) : null}
 
       {pets.length === 0 ? (
-        <EmptyState title="Henüz pet yok" description="İlk pet profilini ekleyerek hatırlatmaları oluşturmaya başlayın." />
+        <EmptyState title="HenÃ¼z pet yok" description="Ä°lk pet profilini ekleyerek hatÄ±rlatmalarÄ± oluÅŸturmaya baÅŸlayÄ±n." />
       ) : (
-        <View style={styles.petList}>
-          {pets.map((pet) => {
+        <FlatList
+          data={pets}
+          keyExtractor={(pet) => `${pet._source || 'legacy'}-${pet.id}`}
+          renderItem={({ item: pet }) => {
             const isShared = pet._source === 'shared';
             return (
-              <Card key={`${pet._source || 'legacy'}-${pet.id}`} style={styles.petCard}>
+              <Card style={styles.petCard}>
                 <Pressable onPress={() => handleOpenPet(pet)} style={({ pressed }) => [styles.petCardPress, pressed && { opacity: 0.95 }]}>
                   <View style={styles.petHeaderRow}>
                     <View style={styles.photoWrap}>
@@ -221,23 +222,13 @@ function PetsTabContent() {
                         <SpeciesPill species={pet.species} />
                       </View>
 
-                      <View style={styles.badgeRow}>
-                        {isShared ? <SoftBadge icon="groups" label={`Ortak • ${getMemberRoleLabel(pet._role)}`} /> : null}
-                        <SoftBadge icon="wc" label={getPetGenderLabel(pet.gender)} />
-                        {pet.breed ? <SoftBadge icon="badge" label={pet.breed} /> : null}
-                        {pet.currentWeight ? <SoftBadge icon="monitor-weight" label={`${pet.currentWeight} kg`} /> : null}
-                      </View>
-
-                      <View style={styles.metaWrap}>
-                        {pet.birthDate ? (
-                          <View style={styles.metaItem}>
-                            <MaterialIcons name="cake" size={14} color="#7895AA" />
-                            <Text style={styles.metaText}>Doğum: {formatDateOnly(pet.birthDate)}</Text>
-                          </View>
-                        ) : (
-                          <Text style={styles.metaHint}>Temel profil hazır • Detaya girerek kayıt ekleyin</Text>
-                        )}
-                      </View>
+                      {isShared ? (
+                        <View style={styles.badgeRow}>
+                          <SoftBadge icon="groups" label={`Ortak â€¢ ${getMemberRoleLabel(pet._role)}`} />
+                        </View>
+                      ) : (
+                        <Text style={styles.metaHint}>Detay ve dÃ¼zenle ekranÄ±ndan yÃ¶netin</Text>
+                      )}
                     </View>
 
                     <View style={styles.chevronWrap}>
@@ -252,7 +243,7 @@ function PetsTabContent() {
                     <ActionPill icon="group" label="Aile" tone="mint" onPress={() => router.push(`/pets/${pet.id}/family-access`)} />
                   ) : (
                     <>
-                      <ActionPill icon="edit" label="Düzenle" tone="mint" onPress={() => handleEditPet(pet)} />
+                      <ActionPill icon="edit" label="DÃ¼zenle" tone="mint" onPress={() => handleEditPet(pet)} />
                       <ActionPill
                         icon="delete-outline"
                         label={deletingId === pet.id ? 'Siliniyor...' : 'Sil'}
@@ -265,8 +256,15 @@ function PetsTabContent() {
                 </View>
               </Card>
             );
-          })}
-        </View>
+          }}
+          ItemSeparatorComponent={() => <View style={styles.petListGap} />}
+          scrollEnabled={false}
+          removeClippedSubviews
+          initialNumToRender={8}
+          maxToRenderPerBatch={12}
+          windowSize={5}
+          contentContainerStyle={styles.petListContent}
+        />
       )}
     </Screen>
   );
@@ -344,7 +342,7 @@ function getMemberRoleLabel(role) {
   if (role === 'owner') return 'Owner';
   if (role === 'family') return 'Family';
   if (role === 'viewer') return 'Viewer';
-  return 'Üye';
+  return 'Ãœye';
 }
 
 const summaryTones = {
@@ -459,8 +457,11 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
   },
-  petList: {
-    gap: 10,
+  petListContent: {
+    gap: 0,
+  },
+  petListGap: {
+    height: 10,
   },
   petCard: {
     gap: 12,
@@ -603,3 +604,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
 });
+

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Image } from 'expo-image';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useLocalSearchParams } from 'expo-router';
@@ -41,7 +41,7 @@ function SocialPostDetailScreen() {
 
   useEffect(() => {
     if (!id) {
-      setError('Gönderi bulunamadı.');
+      setError('GÃ¶nderi bulunamadÄ±.');
       setLoading(false);
       return undefined;
     }
@@ -51,10 +51,10 @@ function SocialPostDetailScreen() {
       (row) => {
         setPost(row);
         setLoading(false);
-        setError(row ? '' : 'Gönderi bulunamadı.');
+        setError(row ? '' : 'GÃ¶nderi bulunamadÄ±.');
       },
       (err) => {
-        setError(err.message || 'Gönderi alınamadı.');
+        setError(err.message || 'GÃ¶nderi alÄ±namadÄ±.');
         setLoading(false);
       }
     );
@@ -74,7 +74,7 @@ function SocialPostDetailScreen() {
   }, [id, user?.uid]);
 
   const subtitle = useMemo(() => {
-    if (loading) return 'Yükleniyor...';
+    if (loading) return 'YÃ¼kleniyor...';
     return `${comments.length} yorum`;
   }, [loading, comments.length]);
 
@@ -85,7 +85,7 @@ function SocialPostDetailScreen() {
       setLikeBusy(true);
       await togglePostLike(id, user.uid);
     } catch (err) {
-      Alert.alert('Beğeni hatası', err.message);
+      Alert.alert('BeÄŸeni hatasÄ±', err.message);
     } finally {
       setLikeBusy(false);
     }
@@ -96,26 +96,26 @@ function SocialPostDetailScreen() {
 
     const text = commentText.trim();
     if (!text) {
-      Alert.alert('Yorum gerekli', 'Lütfen yorum alanını doldurun.');
+      Alert.alert('Yorum gerekli', 'LÃ¼tfen yorum alanÄ±nÄ± doldurun.');
       return;
     }
 
     try {
       setCommentBusy(true);
       await createPostComment(id, user.uid, {
-        userName: user.displayName || `Kullanıcı ${String(user.uid || '').slice(0, 6)}`,
+        userName: user.displayName || `KullanÄ±cÄ± ${String(user.uid || '').slice(0, 6)}`,
         text,
       });
       setCommentText('');
     } catch (err) {
-      Alert.alert('Yorum gönderilemedi', err.message);
+      Alert.alert('Yorum gÃ¶nderilemedi', err.message);
     } finally {
       setCommentBusy(false);
     }
   };
 
   return (
-    <Screen title="Gönderi Detayı" subtitle={subtitle} scroll>
+    <Screen title="GÃ¶nderi DetayÄ±" subtitle={subtitle} scroll>
       {error ? (
         <Card style={styles.errorCard}>
           <View style={styles.errorRow}>
@@ -138,7 +138,7 @@ function SocialPostDetailScreen() {
             <View style={{ flex: 1 }}>
               <View style={styles.ownerRow}>
                 <Text style={styles.ownerName} numberOfLines={1}>
-                  {post.ownerName || 'PetCare Kullanıcısı'}
+                  {post.ownerName || 'PetCare KullanÄ±cÄ±sÄ±'}
                 </Text>
                 {post.petName ? (
                   <View style={styles.petChip}>
@@ -162,15 +162,15 @@ function SocialPostDetailScreen() {
               <View style={styles.imagePlaceholderIcon}>
                 <MaterialIcons name="image-not-supported" size={22} color="#7291A8" />
               </View>
-              <Text style={styles.imagePlaceholderTitle}>Fotoğraf yok</Text>
-              <Text style={styles.imagePlaceholderText}>Bu gönderi şu an görselsiz paylaşıldı.</Text>
+              <Text style={styles.imagePlaceholderTitle}>FotoÄŸraf yok</Text>
+              <Text style={styles.imagePlaceholderText}>Bu gÃ¶nderi ÅŸu an gÃ¶rselsiz paylaÅŸÄ±ldÄ±.</Text>
             </View>
           )}
 
           {post.caption ? <Text style={styles.caption}>{post.caption}</Text> : null}
 
           <View style={styles.metaStatsRow}>
-            <MetaStat icon="favorite" value={post.likeCount || 0} label="beğeni" tone="rose" />
+            <MetaStat icon="favorite" value={post.likeCount || 0} label="beÄŸeni" tone="rose" />
             <MetaStat icon="chat-bubble-outline" value={post.commentCount || 0} label="yorum" tone="sky" />
           </View>
 
@@ -184,7 +184,7 @@ function SocialPostDetailScreen() {
                 pressed && { opacity: 0.9 },
               ]}>
               <MaterialIcons name={liked ? 'favorite' : 'favorite-border'} size={18} color={liked ? '#C63A48' : '#2C5E86'} />
-              <Text style={[styles.actionText, liked && styles.actionTextLiked]}>{liked ? 'Beğenildi' : 'Beğen'}</Text>
+              <Text style={[styles.actionText, liked && styles.actionTextLiked]}>{liked ? 'BeÄŸenildi' : 'BeÄŸen'}</Text>
             </Pressable>
 
             <View style={[styles.actionBtn, styles.secondaryActionBtn]}>
@@ -202,7 +202,7 @@ function SocialPostDetailScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.sectionTitle}>Yorum Yaz</Text>
-            <Text style={styles.sectionSub}>Gönderiyle ilgili kısa bir not veya görüş paylaşın.</Text>
+            <Text style={styles.sectionSub}>GÃ¶nderiyle ilgili kÄ±sa bir not veya gÃ¶rÃ¼ÅŸ paylaÅŸÄ±n.</Text>
           </View>
         </View>
 
@@ -210,14 +210,14 @@ function SocialPostDetailScreen() {
           label="Yorum"
           value={commentText}
           onChangeText={setCommentText}
-          placeholder="Paylaşım hakkında düşüncenizi yazın..."
+          placeholder="PaylaÅŸÄ±m hakkÄ±nda dÃ¼ÅŸÃ¼ncenizi yazÄ±n..."
           multiline
           autoCapitalize="sentences"
         />
 
         <View style={styles.commentComposerFooter}>
-          <Text style={styles.commentHint}>Yorumlar toplulukta herkes tarafından görüntülenir.</Text>
-          <Button title="Yorumu Gönder" onPress={handleSendComment} loading={commentBusy} disabled={!post} />
+          <Text style={styles.commentHint}>Yorumlar toplulukta herkes tarafÄ±ndan gÃ¶rÃ¼ntÃ¼lenir.</Text>
+          <Button title="Yorumu GÃ¶nder" onPress={handleSendComment} loading={commentBusy} disabled={!post} />
         </View>
       </Card>
 
@@ -235,24 +235,35 @@ function SocialPostDetailScreen() {
           <View style={styles.emptyCommentsIcon}>
             <MaterialIcons name="forum" size={20} color="#5A84A6" />
           </View>
-          <Text style={styles.emptyCommentsTitle}>Henüz yorum yok</Text>
-          <Text style={styles.emptyCommentsText}>İlk yorumu yazarak sohbeti başlatabilirsiniz.</Text>
+          <Text style={styles.emptyCommentsTitle}>HenÃ¼z yorum yok</Text>
+          <Text style={styles.emptyCommentsText}>Ä°lk yorumu yazarak sohbeti baÅŸlatabilirsiniz.</Text>
         </Card>
       ) : (
-        comments.map((comment) => (
-          <Card key={comment.id} style={styles.commentCard}>
-            <View style={styles.commentHeader}>
-              <View style={styles.commentAvatar}>
-                <MaterialIcons name="person" size={14} color="#5E86A8" />
+        <FlatList
+          data={comments}
+          keyExtractor={(comment) => comment.id}
+          renderItem={({ item: comment }) => (
+            <Card style={styles.commentCard}>
+              <View style={styles.commentHeader}>
+                <View style={styles.commentAvatar}>
+                  <MaterialIcons name="person" size={14} color="#5E86A8" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.commentOwner}>{comment.userName || 'PetCare Kullanıcısı'}</Text>
+                  <Text style={styles.commentMeta}>{formatDateTime(comment.createdAt)}</Text>
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.commentOwner}>{comment.userName || 'PetCare Kullanıcısı'}</Text>
-                <Text style={styles.commentMeta}>{formatDateTime(comment.createdAt)}</Text>
-              </View>
-            </View>
-            <Text style={styles.commentText}>{comment.text}</Text>
-          </Card>
-        ))
+              <Text style={styles.commentText}>{comment.text}</Text>
+            </Card>
+          )}
+          ItemSeparatorComponent={() => <View style={styles.commentListGap} />}
+          scrollEnabled={false}
+          removeClippedSubviews
+          initialNumToRender={10}
+          maxToRenderPerBatch={14}
+          windowSize={6}
+          contentContainerStyle={styles.commentListContent}
+        />
       )}
     </Screen>
   );
@@ -575,6 +586,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 17,
   },
+  commentListContent: {
+    gap: 0,
+  },
+  commentListGap: {
+    height: 12,
+  },
   commentCard: {
     gap: 8,
     borderColor: '#E2EBF3',
@@ -610,3 +627,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 });
+

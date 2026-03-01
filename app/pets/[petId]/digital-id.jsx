@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Share, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Share, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
@@ -228,14 +228,23 @@ function PetDigitalIdScreen({ petId }) {
           </View>
         </View>
 
-        <View style={styles.previewList}>
-          {previewRows.map((row) => (
-            <View key={row.key} style={styles.previewRow}>
+        <FlatList
+          data={previewRows}
+          keyExtractor={(row) => row.key}
+          renderItem={({ item: row }) => (
+            <View style={styles.previewRow}>
               <Text style={styles.previewLabel}>{row.label}</Text>
               <Text style={styles.previewValue} numberOfLines={2}>{row.value}</Text>
             </View>
-          ))}
-        </View>
+          )}
+          ItemSeparatorComponent={() => <View style={styles.previewListGap} />}
+          scrollEnabled={false}
+          removeClippedSubviews
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          contentContainerStyle={styles.previewListContent}
+        />
       </Card>
 
       <Card>
@@ -252,19 +261,24 @@ function PetDigitalIdScreen({ petId }) {
           <Text style={styles.sectionTitle}>Görünür Alanlar</Text>
           <Chip label="Public profil kontrolü" />
         </View>
-        <View style={styles.toggleList}>
-          {FIELD_TOGGLES.map((item) => {
-            const enabled = !!draft.visibleFields?.[item.key];
-            return (
-              <ButtonToggleRow
-                key={item.key}
-                label={item.label}
-                enabled={enabled}
-                onPress={() => toggleField(item.key)}
-              />
-            );
-          })}
-        </View>
+        <FlatList
+          data={FIELD_TOGGLES}
+          keyExtractor={(item) => item.key}
+          renderItem={({ item }) => (
+            <ButtonToggleRow
+              label={item.label}
+              enabled={!!draft.visibleFields?.[item.key]}
+              onPress={() => toggleField(item.key)}
+            />
+          )}
+          ItemSeparatorComponent={() => <View style={styles.toggleListGap} />}
+          scrollEnabled={false}
+          removeClippedSubviews
+          initialNumToRender={8}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          contentContainerStyle={styles.toggleListContent}
+        />
         <Card style={styles.vaccineSummaryCard}>
           <Text style={styles.previewLabel}>Aşı durumu özeti (kurallı)</Text>
           <Text style={styles.previewValue}>{vaccineSummary}</Text>
@@ -488,8 +502,11 @@ const styles = StyleSheet.create({
     color: PetCareTheme.colors.textMuted,
     fontSize: 12,
   },
-  previewList: {
-    gap: 7,
+  previewListContent: {
+    gap: 0,
+  },
+  previewListGap: {
+    height: 7,
   },
   previewRow: {
     borderWidth: 1,
@@ -510,8 +527,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  toggleList: {
-    gap: 8,
+  toggleListContent: {
+    gap: 0,
+  },
+  toggleListGap: {
+    height: 8,
   },
   toggleRow: {
     flexDirection: 'row',

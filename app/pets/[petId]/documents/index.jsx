@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Image } from 'expo-image';
@@ -115,19 +115,24 @@ function PetDocumentsScreen({ petId }) {
         />
       ) : (
         <View style={styles.listWrap}>
-          {docs.map((doc) => (
-            <DocumentCard
-              key={doc.id}
-              item={doc}
-              onDelete={() => handleDelete(doc)}
-              onOpen={() =>
-                Alert.alert(
-                  doc.title || 'Belge',
-                  doc.fileLocalUri || doc.fileUrl || 'Dosya önizleme henüz eklenmedi.'
-                )
-              }
-            />
-          ))}
+          <FlatList
+            data={docs}
+            keyExtractor={(doc) => doc.id}
+            renderItem={({ item: doc }) => (
+              <DocumentCard
+                item={doc}
+                onDelete={() => handleDelete(doc)}
+                onOpen={() => router.push(`/pets/${petId}/documents/${doc.id}/edit`)}
+              />
+            )}
+            ItemSeparatorComponent={() => <View style={styles.documentListGap} />}
+            scrollEnabled={false}
+            removeClippedSubviews
+            initialNumToRender={8}
+            maxToRenderPerBatch={12}
+            windowSize={5}
+            contentContainerStyle={styles.documentListContent}
+          />
         </View>
       )}
     </Screen>
@@ -266,6 +271,12 @@ const styles = StyleSheet.create({
   listWrap: {
     gap: 10,
   },
+  documentListContent: {
+    gap: 0,
+  },
+  documentListGap: {
+    height: 10,
+  },
   itemCard: {
     gap: 10,
   },
@@ -352,4 +363,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

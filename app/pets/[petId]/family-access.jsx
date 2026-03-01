@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
@@ -16,8 +16,8 @@ import {
 import { useAuth } from '@/providers/auth-provider';
 
 const ROLE_OPTIONS = [
-  { key: 'family', label: 'Family', hint: 'Düzenleyebilir' },
-  { key: 'viewer', label: 'Viewer', hint: 'Sadece görüntüler' },
+  { key: 'family', label: 'Family', hint: 'DÃ¼zenleyebilir' },
+  { key: 'viewer', label: 'Viewer', hint: 'Sadece gÃ¶rÃ¼ntÃ¼ler' },
 ];
 
 export default function FamilyAccessRoute() {
@@ -49,7 +49,10 @@ function FamilyAccessScreen({ petId }) {
 
   useEffect(() => {
     if (!petId) return undefined;
-    const unsubs = [subscribeSharedPet(petId, setSharedPet, () => {}), subscribeSharedPetMembers(petId, setMembers, () => {})];
+    const unsubs = [
+      subscribeSharedPet(petId, setSharedPet, () => {}),
+      subscribeSharedPetMembers(petId, setMembers, () => {}),
+    ];
     return () => unsubs.forEach((u) => u?.());
   }, [petId]);
 
@@ -57,27 +60,12 @@ function FamilyAccessScreen({ petId }) {
   const petName = sharedPet?.name || legacyPet?.name || 'Pet';
   const ownerMember = useMemo(() => members.find((m) => m.role === 'owner'), [members]);
 
-  const showMigrationHelp = () => {
-    Alert.alert(
-      'Migration Nasıl Yapılır?',
-      [
-        '1. Dry-run çalıştırın:',
-        'npm run migrate:shared-pets -- --dry-run',
-        '',
-        '2. Çıktı doğruysa gerçek migration:',
-        'npm run migrate:shared-pets',
-        '',
-        '3. Firestore rules deploy edin:',
-        'firebase deploy --only firestore:rules',
-      ].join('\n')
-    );
-  };
-
   const handleCreateInvite = async () => {
     if (!isSharedReady) {
-      Alert.alert('Shared pet hazır değil', 'Bu pet henüz shared modele taşınmamış görünüyor. Önce migration çalıştırın.');
+      Alert.alert('Shared pet hazÄ±r deÄŸil', 'Bu pet henÃ¼z shared modele taÅŸÄ±nmamÄ±ÅŸ gÃ¶rÃ¼nÃ¼yor. Ã–nce migration Ã§alÄ±ÅŸtÄ±rÄ±n.');
       return;
     }
+
     try {
       setBusyAction('createInvite');
       setError('');
@@ -87,9 +75,9 @@ function FamilyAccessScreen({ petId }) {
         role: inviteRole,
       });
       setGeneratedCode(res.code);
-      Alert.alert('Davet kodu oluşturuldu', `Kod: ${res.code}`);
+      Alert.alert('Davet kodu oluÅŸturuldu', `Kod: ${res.code}`);
     } catch (err) {
-      setError(err.message || 'Davet kodu oluşturulamadı.');
+      setError(err.message || 'Davet kodu oluÅŸturulamadÄ±.');
     } finally {
       setBusyAction('');
     }
@@ -100,6 +88,7 @@ function FamilyAccessScreen({ petId }) {
       setError('Davet kodu girin.');
       return;
     }
+
     try {
       setBusyAction('joinInvite');
       setError('');
@@ -108,10 +97,10 @@ function FamilyAccessScreen({ petId }) {
         inviteCode: inviteCodeInput,
         displayName: user.displayName || null,
       });
-      Alert.alert('Katılım başarılı', 'Pet erişimi hesabınıza eklendi.');
+      Alert.alert('KatÄ±lÄ±m baÅŸarÄ±lÄ±', 'Pet eriÅŸimi hesabÄ±nÄ±za eklendi.');
       setInviteCodeInput('');
     } catch (err) {
-      setError(err.message || 'Davet kodu kullanılamadı.');
+      setError(err.message || 'Davet kodu kullanÄ±lamadÄ±.');
     } finally {
       setBusyAction('');
     }
@@ -119,40 +108,27 @@ function FamilyAccessScreen({ petId }) {
 
   return (
     <Screen
-      title="Aile & Erişim"
-      subtitle={`${petName} için ortak sahiplik ve davet yönetimi`}
+      title="Aile & EriÅŸim"
+      subtitle={`${petName} iÃ§in ortak sahiplik ve davet yÃ¶netimi`}
       right={<Button title="Kapat" variant="secondary" onPress={() => router.back()} />}>
-      {!isSharedReady ? (
-        <Card style={styles.warningCard}>
-          <View style={styles.infoRow}>
-            <MaterialIcons name="info-outline" size={18} color="#946C1A" />
-            <Text style={styles.warningTitle}>Shared model henüz aktif değil</Text>
-          </View>
-          <Text style={styles.warningText}>
-            Bu pet şu an eski veri modelinde görünüyor. Aile erişimi için `shared pets migration` sonrası bu ekran aktifleşir.
-          </Text>
-          <View style={styles.warningChips}>
-            <Chip label="V2.1 Draft" tone="warning" />
-            {legacyPet ? <Chip label={`Pet: ${legacyPet.name || 'Pet'}`} /> : null}
-          </View>
-          <Button title="Migration Nasıl Yapılır?" variant="secondary" onPress={showMigrationHelp} />
-        </Card>
-      ) : null}
-
       <Card>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Üyeler</Text>
-          <Chip label={`${members.length} kişi`} />
+          <Text style={styles.sectionTitle}>Ãœyeler</Text>
+          <Chip label={`${members.length} kiÅŸi`} />
         </View>
 
         {members.length === 0 ? (
-          <Text style={styles.emptyText}>Henüz üye görünmüyor. Migration sonrası owner üyesi burada listelenir.</Text>
+          <Text style={styles.emptyText}>HenÃ¼z Ã¼ye gÃ¶rÃ¼nmÃ¼yor. Migration sonrasÄ± owner Ã¼yesi burada listelenir.</Text>
         ) : (
-          <View style={styles.memberList}>
-            {members.map((member) => (
-              <View key={member.id} style={styles.memberRow}>
+          <FlatList
+            data={members}
+            keyExtractor={(member) => member.id}
+            renderItem={({ item: member }) => (
+              <View style={styles.memberRow}>
                 <View style={styles.memberAvatar}>
-                  <Text style={styles.memberAvatarText}>{(member.displayName || member.uid || '?').slice(0, 2).toUpperCase()}</Text>
+                  <Text style={styles.memberAvatarText}>
+                    {(member.displayName || member.uid || '?').slice(0, 2).toUpperCase()}
+                  </Text>
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.memberName}>{member.displayName || member.uid || 'Üye'}</Text>
@@ -163,18 +139,25 @@ function FamilyAccessScreen({ petId }) {
                 </View>
                 <RoleBadge role={member.role} />
               </View>
-            ))}
-          </View>
+            )}
+            ItemSeparatorComponent={() => <View style={styles.memberListGap} />}
+            scrollEnabled={false}
+            removeClippedSubviews
+            initialNumToRender={8}
+            maxToRenderPerBatch={12}
+            windowSize={5}
+            contentContainerStyle={styles.memberListContent}
+          />
         )}
       </Card>
 
       <Card>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Davet Kodu Oluştur</Text>
+          <Text style={styles.sectionTitle}>Davet Kodu OluÅŸtur</Text>
           <MaterialIcons name="group-add" size={18} color="#5C7D92" />
         </View>
 
-        <Text style={styles.helperText}>Owner rolündeki kullanıcılar family veya viewer davet kodu oluşturabilir.</Text>
+        <Text style={styles.helperText}>Owner rolÃ¼ndeki kullanÄ±cÄ±lar family veya viewer davet kodu oluÅŸturabilir.</Text>
 
         <View style={styles.roleOptionWrap}>
           {ROLE_OPTIONS.map((role) => {
@@ -183,7 +166,11 @@ function FamilyAccessScreen({ petId }) {
               <Pressable
                 key={role.key}
                 onPress={() => setInviteRole(role.key)}
-                style={({ pressed }) => [styles.roleOption, selected && styles.roleOptionActive, pressed && { opacity: 0.9 }]}>
+                style={({ pressed }) => [
+                  styles.roleOption,
+                  selected && styles.roleOptionActive,
+                  pressed && { opacity: 0.9 },
+                ]}>
                 <Text style={[styles.roleOptionTitle, selected && styles.roleOptionTitleActive]}>{role.label}</Text>
                 <Text style={[styles.roleOptionHint, selected && styles.roleOptionHintActive]}>{role.hint}</Text>
               </Pressable>
@@ -193,7 +180,7 @@ function FamilyAccessScreen({ petId }) {
 
         {generatedCode ? (
           <View style={styles.codeBox}>
-            <Text style={styles.codeLabel}>Son oluşturulan kod</Text>
+            <Text style={styles.codeLabel}>Son oluÅŸturulan kod</Text>
             <Text selectable style={styles.codeText}>
               {generatedCode}
             </Text>
@@ -201,7 +188,7 @@ function FamilyAccessScreen({ petId }) {
         ) : null}
 
         <Button
-          title={busyAction === 'createInvite' ? 'Kod oluşturuluyor...' : 'Davet Kodu Oluştur'}
+          title={busyAction === 'createInvite' ? 'Kod oluÅŸturuluyor...' : 'Davet Kodu OluÅŸtur'}
           onPress={handleCreateInvite}
           loading={busyAction === 'createInvite'}
           disabled={busyAction === 'joinInvite'}
@@ -210,18 +197,18 @@ function FamilyAccessScreen({ petId }) {
 
       <Card>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Davet Koduyla Katıl</Text>
+          <Text style={styles.sectionTitle}>Davet Koduyla KatÄ±l</Text>
           <MaterialIcons name="vpn-key" size={18} color="#5C7D92" />
         </View>
         <Field
           label="Davet kodu"
           value={inviteCodeInput}
           onChangeText={(v) => setInviteCodeInput(v.toUpperCase())}
-          placeholder="Örn. AB12CD34"
+          placeholder="Ã–rn. AB12CD34"
           autoCapitalize="characters"
         />
         <Button
-          title={busyAction === 'joinInvite' ? 'Katılım kontrol ediliyor...' : 'Koda Katıl'}
+          title={busyAction === 'joinInvite' ? 'KatÄ±lÄ±m kontrol ediliyor...' : 'Koda KatÄ±l'}
           variant="secondary"
           onPress={handleJoinByCode}
           loading={busyAction === 'joinInvite'}
@@ -245,31 +232,6 @@ function RoleBadge({ role }) {
 }
 
 const styles = StyleSheet.create({
-  warningCard: {
-    borderColor: '#F2DFBD',
-    backgroundColor: '#FFF8EB',
-    gap: 8,
-  },
-  warningChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  warningTitle: {
-    color: '#845D12',
-    fontWeight: '700',
-    fontSize: 13,
-  },
-  warningText: {
-    color: '#8F733C',
-    fontSize: 12,
-    lineHeight: 17,
-  },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -291,8 +253,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
-  memberList: {
-    gap: 10,
+  memberListContent: {
+    gap: 0,
+  },
+  memberListGap: {
+    height: 10,
   },
   memberRow: {
     flexDirection: 'row',
@@ -384,3 +349,4 @@ const styles = StyleSheet.create({
     letterSpacing: 1.4,
   },
 });
+
